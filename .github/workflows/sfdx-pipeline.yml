@@ -19,5 +19,5 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: ${{ matrix.node-version }}
-    - run: npm install -g
-    - run: sfdx version
+    - run: npm install -g sfdx-cli@latest
+    - run: echo 'y' || sfdx plugins:install dxb@latest
