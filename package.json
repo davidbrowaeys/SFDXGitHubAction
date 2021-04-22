@@ -12,20 +12,6 @@
   },
   "devDependencies": {
     "sfdx-cli": "^7.97.1",
-    "husky": "^4.2.1",
     "dxb": "^1.6.3"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
-  },
-  "lint-staged": {
-    "**/*.{cls,cmp,component,css,html,js,json,md,page,trigger,xml,yaml,yml}": [
-      "prettier --write"
-    ],
-    "**/{aura|lwc}/**": [
-      "eslint"
-    ]
   }
 }
