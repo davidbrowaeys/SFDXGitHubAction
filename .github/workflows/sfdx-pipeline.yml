@@ -9,6 +9,8 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    environment: CI
+
     strategy:
       matrix:
         node-version: [15.x]
@@ -19,7 +21,12 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: ${{ matrix.node-version }}
-    - run: npm install -g sfdx-cli@latest
-    - run: echo 'y' | sfdx plugins:install dxb@latest
-    - run: echo ${{ secrets.SFDX_CI }} > creds.txt
-    - run: echo sfdx force:auth:sfdxurl:store -f creds.txt -a CI
+    - shell: bash
+      env:
+        AUTHURL: ${{ secrets.AUTH_URL }}
+      run: |
+        npm install -g sfdx-cli@latest
+        echo 'y' | sfdx plugins:install dxb@latest
+        echo "$AUTHURL" > creds.txt
+        sfdx force:auth:sfdxurl:store -f creds.txt -a CI
+        sfdx force:deploy -p force-app -u CI
