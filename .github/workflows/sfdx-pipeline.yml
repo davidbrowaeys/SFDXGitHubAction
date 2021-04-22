@@ -21,3 +21,5 @@ jobs:
         node-version: ${{ matrix.node-version }}
     - run: npm install -g sfdx-cli@latest
     - run: echo 'y' | sfdx plugins:install dxb@latest
+    - run: echo ${{ secrets.SFDX_CI }} > creds.txt
+    - run: echo sfdx force:auth:sfdxurl:store -f creds.txt -a CI
