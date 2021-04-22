@@ -1,3 +1,6 @@
+/**
+* @description Sample Controller
+*/
 public with sharing class MyController {
     @AuraEnabled(cacheable=true)
     public static List<Contact> findContacts(String searchKey) {
