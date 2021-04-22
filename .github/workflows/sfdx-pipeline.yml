@@ -22,6 +22,7 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
     - shell: bash
+      name: Install SFDX
       env:
         AUTHURL: ${{ secrets.AUTH_URL }}
       run: |
@@ -29,4 +30,4 @@ jobs:
         echo 'y' | sfdx plugins:install dxb@latest
         echo "$AUTHURL" > creds.txt
         sfdx force:auth:sfdxurl:store -f creds.txt -a CI
-        sfdx force:deploy -p force-app -u CI
+        sfdx force:source:deploy -p force-app -u CI
