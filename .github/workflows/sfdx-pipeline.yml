@@ -20,4 +20,4 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
     - run: npm install -g sfdx-cli@latest
-    - run: echo 'y' || sfdx plugins:install dxb@latest
+    - run: echo 'y' | sfdx plugins:install dxb@latest
