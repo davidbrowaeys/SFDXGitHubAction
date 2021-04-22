@@ -13,6 +13,6 @@
   "dependencies": {
     "jq.node": "^2.2.0",
     "sfdx-cli": "^7.97.1",
-    "dxb": "^1.6.3"
+    "dxb": "^1.6.2"
   }
 }
