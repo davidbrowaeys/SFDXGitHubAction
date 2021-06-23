@@ -20,12 +20,7 @@ jobs:
 
     container: brovasi/dxb
 
-    # strategy:
-    #   matrix:
-    #     node-version: [15.x]
-
     steps:
-    - uses: actions/checkout@v2
     - run: |
         echo $GITHUB_EVENT_NAME
         sfdx version && sfdx plugins
@@ -36,6 +31,7 @@ jobs:
       name: Authenticate
       env:
         AUTHURL: ${{ secrets.AUTH_URL }}
+    - uses: actions/checkout@v2
     - run: sfdx force:source:deploy -p force-app -u CI
       name: Deploy to CI
       
