@@ -1,4 +1,6 @@
-name: SFDX CI
+name: SFDX 
+author: David Browaeys
+description: Sample SFDX Pipeline 
 
 on:
   push:
@@ -18,7 +20,7 @@ jobs:
 
     environment: CI
 
-    container: salesforce/salesforcedx
+    container: brovasi/dxb
 
     # strategy:
     #   matrix:
@@ -30,7 +32,7 @@ jobs:
       name: Install SFDX plugins
       run: |
         echo $GITHUB_EVENT_NAME
-        echo 'y' | sfdx plugins:install dxb@latest
+        sfdx version && sfdx plugins
     - shell: bash
       name: Authenticate
       env:
