@@ -1,4 +1,4 @@
-name: SFDX CI
+name: SFDX 
 
 on:
   push:
@@ -18,30 +18,21 @@ jobs:
 
     environment: CI
 
-    strategy:
-      matrix:
-        node-version: [15.x]
+    container: brovasi/dxb
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v1
-      with:
-        node-version: ${{ matrix.node-version }}
-    - shell: bash
-      name: Install SFDX and plugins
-      run: |
+    - run: |
+        ls -ail
         echo $GITHUB_EVENT_NAME
-        npm install -g sfdx-cli@latest
-        echo 'y' | sfdx plugins:install dxb@latest
-    - shell: bash
+        sfdx commands
+      name: Install SFDX plugins
+    - run: |
+        echo "$AUTHURL" > creds.txt
+        sfdx force:auth:sfdxurl:store -f creds.txt -a CI
       name: Authenticate
       env:
         AUTHURL: ${{ secrets.AUTH_URL }}
-      run: |
-        echo "$AUTHURL" > creds.txt
-        sfdx force:auth:sfdxurl:store -f creds.txt -a CI
-    - shell: bash
+    - uses: actions/checkout@v2
+    - run: sfdx force:source:deploy -p force-app -u CI
       name: Deploy to CI
-      run: |
-        sfdx force:source:deploy -p force-app -u CI
+      
