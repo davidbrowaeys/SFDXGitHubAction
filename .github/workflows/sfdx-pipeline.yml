@@ -1,6 +1,4 @@
 name: SFDX 
-author: David Browaeys
-description: Sample SFDX Pipeline 
 
 on:
   push:
