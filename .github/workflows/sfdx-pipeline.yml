@@ -18,21 +18,18 @@ jobs:
 
     environment: CI
 
-    strategy:
-      matrix:
-        node-version: [15.x]
+    container: salesforce/salesforcedx
+
+    # strategy:
+    #   matrix:
+    #     node-version: [15.x]
 
     steps:
     - uses: actions/checkout@v2
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v1
-      with:
-        node-version: ${{ matrix.node-version }}
     - shell: bash
-      name: Install SFDX and plugins
+      name: Install SFDX plugins
       run: |
         echo $GITHUB_EVENT_NAME
-        npm install -g sfdx-cli@latest
         echo 'y' | sfdx plugins:install dxb@latest
     - shell: bash
       name: Authenticate
