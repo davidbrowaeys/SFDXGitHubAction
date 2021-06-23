@@ -26,19 +26,16 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - shell: bash
-      name: Install SFDX plugins
-      run: |
+    - run: |
         echo $GITHUB_EVENT_NAME
         sfdx version && sfdx plugins
-    - shell: bash
+      name: Install SFDX plugins
+    - run: |
+        echo "$AUTHURL" > creds.txt
+        sfdx force:auth:sfdxurl:store -f creds.txt -a CI
       name: Authenticate
       env:
         AUTHURL: ${{ secrets.AUTH_URL }}
-      run: |
-        echo "$AUTHURL" > creds.txt
-        sfdx force:auth:sfdxurl:store -f creds.txt -a CI
-    - shell: bash
+    - run: sfdx force:source:deploy -p force-app -u CI
       name: Deploy to CI
-      run: |
-        sfdx force:source:deploy -p force-app -u CI
+      
