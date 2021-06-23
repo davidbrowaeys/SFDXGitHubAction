@@ -25,6 +25,7 @@ jobs:
         ls -ail
         echo $GITHUB_EVENT_NAME
         sfdx version
+        echo y | sfdx plugins:install dxb
         sfdx plugins
       name: Install SFDX plugins
     - run: |
