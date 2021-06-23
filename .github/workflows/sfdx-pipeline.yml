@@ -2,7 +2,14 @@ name: SFDX CI
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+    paths:
+      - 'force-app/**'
+  pull_request:
+      types: [assigned, opened, synchronize, reopened, edited]
+      branches:
+        - main
 
 jobs:
   build:
@@ -24,6 +31,7 @@ jobs:
     - shell: bash
       name: Install SFDX and plugins
       run: |
+        echo $GITHUB_EVENT_NAME
         npm install -g sfdx-cli@latest
         echo 'y' | sfdx plugins:install dxb@latest
     - shell: bash
