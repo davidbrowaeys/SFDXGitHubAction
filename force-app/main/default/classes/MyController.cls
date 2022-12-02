@@ -1,5 +1,5 @@
 /**
-* @description Sample Controller
+* @description Sample Controller for cicd
 * @author Test
 */
 public with sharing class MyController {
