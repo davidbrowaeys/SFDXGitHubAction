@@ -24,7 +24,8 @@ jobs:
     - run: |
         ls -ail
         echo $GITHUB_EVENT_NAME
-        sfdx commands
+        sfdx --version
+        sfdx dxb -h
       name: Install SFDX plugins
     - run: |
         echo "$AUTHURL" > creds.txt
