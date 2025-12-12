@@ -19,10 +19,9 @@ jobs:
   qa_validation_pr:
     name: 🧪 QA Validation (PR)
     if: github.event_name == 'pull_request' && github.base_ref == 'refs/heads/develop'
-    environment: QA
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     with:
-      target-env: 'qa'
+      target-env: 'QA'
       deployment-mode: 'DELTA'
       delta-mode: 'branch'
       test-level: 'RunLocalTests'
