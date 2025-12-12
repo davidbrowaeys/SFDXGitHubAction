@@ -33,20 +33,9 @@ jobs:
   # ====================================================
 
   # 1. QA Validation Trigger
-  qa_validation_pr_trigger:
-    runs-on: ubuntu-latest
-    environment: QA
-    needs: set_comparison_vars
-    if: github.event_name == 'pull_request' && github.base_ref == 'develop'
-    outputs:
-      compare_branch: ${{ needs.set_comparison_vars.outputs.compare_branch }}
-    steps:
-      - run: echo "Triggering QA Validation..."
-  
-  # 1. QA Validation Call
   qa_validation_pr:
     name: 🧪 QA Validation (PR)
-    needs: qa_validation_pr_trigger
+    if: github.event_name == 'push' && github.base_ref == 'refs/heads/develop'
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     with:
       target-env: 'qa'
