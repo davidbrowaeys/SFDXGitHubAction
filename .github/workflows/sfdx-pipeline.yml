@@ -18,7 +18,6 @@ jobs:
   # 1. QA Validation Trigger
   qa_validation_pr:
     name: 🧪 QA Validation (PR)
-    runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.base_ref == 'refs/heads/develop'
     environment: QA
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
