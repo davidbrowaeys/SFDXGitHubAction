@@ -51,11 +51,7 @@ jobs:
       test-level: 'RunLocalTests'
       check-only: true
       # Correctly referencing the output from the set_comparison_vars job
-      compare-with: ${{ needs.set_comparison_vars.outputs.compare_branch }}
-    
-    secrets:
-      auth-url-secret-name: SF_QA_AUTH_URL 
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      compare-with: ${{ needs.set_comparison_vars.outputs.compare_branch }|
       
   # ----------------------------------------------------
   # STEP 2: Push to Develop (QA Deployment)
@@ -74,10 +70,6 @@ jobs:
       test-level: 'RunLocalTests'
       check-only: false 
       compare-with: ${{ needs.set_comparison_vars.outputs.compare_branch }}
-    
-    secrets:
-      auth-url-secret-name: SF_QA_AUTH_URL 
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       
   # ----------------------------------------------------
   # STEP 3: Develop -> Release PR (SIT Validation)
@@ -96,10 +88,6 @@ jobs:
       test-level: 'RunLocalTests'
       check-only: true
       compare-with: ${{ needs.set_comparison_vars.outputs.compare_branch }}
-      
-    secrets:
-      auth-url-secret-name: SF_SIT_AUTH_URL
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   # ----------------------------------------------------
   # STEP 4: Push to Release (SIT Deployment)
@@ -118,10 +106,6 @@ jobs:
       test-level: 'RunLocalTests'
       check-only: false
       compare-with: ${{ needs.set_comparison_vars.outputs.compare_branch }}
-      
-    secrets:
-      auth-url-secret-name: SF_SIT_AUTH_URL
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   # ----------------------------------------------------
   # STEP 5: UAT Validation (Manual Approval Required)
@@ -140,10 +124,6 @@ jobs:
       test-level: 'RunAllTestsInOrg'
       check-only: true
       compare-with: 'HEAD^' # Compare the release branch against its previous state
-      
-    secrets:
-      auth-url-secret-name: SF_UAT_AUTH_URL
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   # ----------------------------------------------------
   # STEP 6: UAT Deployment (Manual Approval Required)
@@ -162,7 +142,3 @@ jobs:
       test-level: 'RunAllTestsInOrg'
       check-only: false
       compare-with: 'HEAD^' 
-      
-    secrets:
-      auth-url-secret-name: SF_UAT_AUTH_URL
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
