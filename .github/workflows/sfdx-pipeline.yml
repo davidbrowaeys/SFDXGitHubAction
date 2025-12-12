@@ -47,18 +47,17 @@ jobs:
   qa_validation_pr:
     name: 🧪 QA Validation (PR)
     needs: qa_validation_pr_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@f3242958c10b404887431da4206f15a882f66bda
     with:
       target-env: 'qa'
       deployment-mode: 'DELTA'
       test-level: 'RunLocalTests'
       check-only: true
       compare-with: ${{ needs.qa_validation_pr_trigger.outputs.compare_branch }}
+      auth-url-secret-name: 'AUTH_URL' # FIX: Pass literal secret name
     secrets:
-      # FIX: Pass the literal name to 'with' (implicitly done by the reusable workflow's logic)
-      # PASS: Make the actual secret value available to the reusable workflow
-      AUTH_URL: ${{ secrets.AUTH_URL }} 
-
+      AUTH_URL: ${{ secrets.AUTH_URL }} # FIX: Pass the actual secret value
+      
   # 2. QA Deployment Trigger
   qa_deployment_trigger:
     runs-on: ubuntu-latest
@@ -74,13 +73,13 @@ jobs:
   qa_deployment:
     name: 🚀 QA Deployment (Push)
     needs: qa_deployment_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@f3242958c10b404887431da4206f15a882f66bda
     with:
       target-env: 'qa' 
       deployment-mode: 'DELTA'
       test-level: 'RunLocalTests'
       check-only: false 
       compare-with: ${{ needs.qa_deployment_trigger.outputs.compare_branch }}
+      auth-url-secret-name: 'AUTH_URL' # FIX: Pass literal secret name
     secrets:
-      # PASS: Make the actual secret value available to the reusable workflow
-      AUTH_URL: ${{ secrets.AUTH_URL }} 
+      AUTH_URL: ${{ secrets.AUTH_URL }} # FIX: Pass the actual secret value
