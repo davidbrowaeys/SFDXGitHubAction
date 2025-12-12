@@ -1,42 +1,56 @@
 name: Salesforce Multi-Environment Pipeline
 
 on:
-  # 1. Feature -> Develop PR (Validation for QA)
   pull_request:
     branches:
       - develop
-  # 2. Develop -> Release PR (Validation for SIT)
-      - release/**
-  # 3. Push to Develop (Deployment to QA)
+      - 'release/**'
   push:
     branches:
       - develop
-  # 4. Push to Release (Deployment to SIT, UAT, Prod)
-      - release/**
-
-# Global default inputs for the reusable workflow
-env:
-  # Default delta comparison branch for pushes
-  DEFAULT_COMPARE_PUSH: 'HEAD^' 
-  # Default delta comparison branch for pull requests
-  DEFAULT_COMPARE_PR: ${{ github.base_ref }}
+      - 'release/**'
 
 jobs:
   # ----------------------------------------------------
+  # 🔑 Global Helper: Determine Comparison Branches
+  # This job runs first to determine dynamic compare values
+  # ----------------------------------------------------
+  set_comparison_vars:
+    runs-on: ubuntu-latest
+    outputs:
+      # Compare with: HEAD^ for push, base_ref for pull_request
+      compare_branch: ${{ steps.compare.outputs.branch }}
+    steps:
+      - id: compare
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # For PR, compare with the target branch
+            echo "::set-output name=branch::${{ github.base_ref }}"
+          else
+            # For Push, compare with the previous commit
+            echo "::set-output name=branch::HEAD^"
+          fi
+        shell: bash
+
+  # ----------------------------------------------------
   # STEP 1: Feature -> Develop PR (QA Validation)
-  # Runs when any branch creates a PR targeting 'develop'
   # ----------------------------------------------------
   qa_validation_pr:
     name: 🧪 QA Validation (PR)
+    needs: set_comparison_vars
     if: github.event_name == 'pull_request' && github.base_ref == 'develop'
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     
+    # Correct structure: 'uses' is the top-level property under the job ID
+    uses: owner/ci-actions/.github/workflows/continuous-integration.yml@main
+    
+    # 'with' and 'secrets' are correctly nested under 'uses' job
     with:
-      target-env: 'qa' 
+      target-env: 'qa'
       deployment-mode: 'DELTA'
       test-level: 'RunLocalTests'
       check-only: true
-      compare-with: ${{ env.DEFAULT_COMPARE_PR }}
+      # Correctly referencing the output from the set_comparison_vars job
+      compare-with: ${{ needs.set_comparison_vars.outputs.compare_branch }}
     
     secrets:
       auth-url-secret-name: SF_QA_AUTH_URL 
@@ -44,21 +58,20 @@ jobs:
       
   # ----------------------------------------------------
   # STEP 2: Push to Develop (QA Deployment)
-  # Runs after the PR is merged into 'develop'
   # ----------------------------------------------------
   qa_deployment:
     name: 🚀 QA Deployment (Push)
+    needs: [set_comparison_vars, qa_validation_pr]
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-    # Wait for the PR validation to pass if run manually
-    needs: qa_validation_pr
-    uses: davidbrowaeys/SafireForGitHub.github/workflows/continuous-integration.yml@main
+    
+    uses: owner/ci-actions/.github/workflows/continuous-integration.yml@main
     
     with:
       target-env: 'qa' 
       deployment-mode: 'DELTA'
       test-level: 'RunLocalTests'
-      check-only: false # Actual deployment
-      compare-with: ${{ env.DEFAULT_COMPARE_PUSH }}
+      check-only: false 
+      compare-with: ${{ needs.set_comparison_vars.outputs.compare_branch }}
     
     secrets:
       auth-url-secret-name: SF_QA_AUTH_URL 
@@ -66,22 +79,21 @@ jobs:
       
   # ----------------------------------------------------
   # STEP 3: Develop -> Release PR (SIT Validation)
-  # Runs when the 'develop' branch creates a PR targeting 'release/r1.0'
   # ----------------------------------------------------
   sit_validation_pr:
     name: 🔬 SIT Validation (Release PR)
-    # Check if this is a PR targeting a branch starting with 'release/'
+    needs: set_comparison_vars
     if: github.event_name == 'pull_request' && startsWith(github.base_ref, 'release/')
-    # This job should use the SIT Environment (no approval needed for validation)
     environment: SIT
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    
+    uses: owner/ci-actions/.github/workflows/continuous-integration.yml@main
     
     with:
       target-env: 'sit'
       deployment-mode: 'DELTA'
       test-level: 'RunLocalTests'
       check-only: true
-      compare-with: ${{ env.DEFAULT_COMPARE_PR }}
+      compare-with: ${{ needs.set_comparison_vars.outputs.compare_branch }}
       
     secrets:
       auth-url-secret-name: SF_SIT_AUTH_URL
@@ -89,22 +101,21 @@ jobs:
 
   # ----------------------------------------------------
   # STEP 4: Push to Release (SIT Deployment)
-  # Runs after the 'develop' PR is merged into the 'release' branch
   # ----------------------------------------------------
   sit_deployment:
     name: 🚀 SIT Deployment (Release Push)
+    needs: [set_comparison_vars, sit_validation_pr]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/')
-    needs: sit_validation_pr
-    # This job deploys to the SIT Environment
     environment: SIT
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    
+    uses: owner/ci-actions/.github/workflows/continuous-integration.yml@main
     
     with:
       target-env: 'sit'
       deployment-mode: 'DELTA'
       test-level: 'RunLocalTests'
-      check-only: false # Actual deployment
-      compare-with: ${{ env.DEFAULT_COMPARE_PUSH }}
+      check-only: false
+      compare-with: ${{ needs.set_comparison_vars.outputs.compare_branch }}
       
     secrets:
       auth-url-secret-name: SF_SIT_AUTH_URL
@@ -112,22 +123,21 @@ jobs:
 
   # ----------------------------------------------------
   # STEP 5: UAT Validation (Manual Approval Required)
-  # Runs immediately after SIT deployment, but waits for approval
   # ----------------------------------------------------
   uat_validation:
     name: ✅ UAT Validation (Manual Approval)
-    if: success()
     needs: sit_deployment
-    # Use the UAT Environment, which requires reviewers in Settings
+    if: always() && needs.sit_deployment.result == 'success'
     environment: UAT
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    
+    uses: owner/ci-actions/.github/workflows/continuous-integration.yml@main
     
     with:
       target-env: 'uat'
-      deployment-mode: 'FULL' # Optional: Run full validation here
-      test-level: 'RunAllTestsInOrg' # Optional: Run all tests here
-      check-only: true # Always Validation for this first step
-      compare-with: ${{ env.DEFAULT_COMPARE_PUSH }} # The release branch is being compared to its previous state
+      deployment-mode: 'FULL'
+      test-level: 'RunAllTestsInOrg'
+      check-only: true
+      compare-with: 'HEAD^' # Compare the release branch against its previous state
       
     secrets:
       auth-url-secret-name: SF_UAT_AUTH_URL
@@ -135,22 +145,21 @@ jobs:
 
   # ----------------------------------------------------
   # STEP 6: UAT Deployment (Manual Approval Required)
-  # Runs only if UAT Validation is successful and approved
   # ----------------------------------------------------
   uat_deployment:
     name: 🚀 UAT Deployment (Manual Approval)
-    if: success()
     needs: uat_validation
-    # Use the UAT Environment, which requires reviewers in Settings
+    if: always() && needs.uat_validation.result == 'success'
     environment: UAT
-    uses: davidbrowaeys/SafireForGitHub/continuous-integration.yml@main
+    
+    uses: owner/ci-actions/.github/workflows/continuous-integration.yml@main
     
     with:
       target-env: 'uat'
       deployment-mode: 'DELTA'
       test-level: 'RunAllTestsInOrg'
-      check-only: false # Actual deployment
-      compare-with: ${{ env.DEFAULT_COMPARE_PUSH }} 
+      check-only: false
+      compare-with: 'HEAD^' 
       
     secrets:
       auth-url-secret-name: SF_UAT_AUTH_URL
@@ -158,26 +167,16 @@ jobs:
 
   # ----------------------------------------------------
   # STEP 7: Prod Validation (Manual Approval Required)
-  # Runs only if UAT deployment is successful
   # ----------------------------------------------------
   prod_validation:
     name: ✅ Prod Validation (Manual Approval)
-    if: success()
     needs: uat_deployment
-    # Use the Production Environment, which requires reviewers in Settings
+    if: always() && needs.uat_deployment.result == 'success'
     environment: Production
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    
+    uses: owner/ci-actions/.github/workflows/continuous-integration.yml@main
     
     with:
       target-env: 'prod'
-      deployment-mode: 'FULL' # Full validation is highly recommended for prod
-      test-level: 'RunAllTestsInOrg' 
-      check-only: true # Always Validation for this first step
-      compare-with: ${{ env.DEFAULT_COMPARE_PUSH }}
-      
-    secrets:
-      auth-url-secret-name: SF_PROD_AUTH_URL
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  # ----------------------------------------------------
-  # STEP 8: Prod Deployment (Manual
+      deployment-mode: 'FULL' 
+      test-level: 'RunAllTestsInOrg
