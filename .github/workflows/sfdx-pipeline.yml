@@ -55,6 +55,8 @@ jobs:
       test-level: 'RunLocalTests'
       check-only: true
       compare-with: ${{ needs.qa_validation_pr_trigger.outputs.compare_branch }}
+    secrets:
+      auth-url-secret-name: ${{ secrets.AUTH_URL }}
 
   # 2. QA Deployment Trigger (Standard Job)
   qa_deployment_trigger:
@@ -78,3 +80,5 @@ jobs:
       test-level: 'RunLocalTests'
       check-only: false 
       compare-with: ${{ needs.qa_deployment_trigger.outputs.compare_branch }}
+    secrets:
+      auth-url-secret-name: ${{ secrets.AUTH_URL }}
