@@ -54,9 +54,9 @@ jobs:
       test-level: 'RunLocalTests'
       check-only: true
       compare-with: ${{ needs.qa_validation_pr_trigger.outputs.compare_branch }}
-      auth-url-secret-name: 'AUTH_URL' # FIX: Pass literal secret name
+      auth-url-secret-name: 'QA_AUTH_URL' # FIX: Pass literal secret name
     secrets:
-      AUTH_URL: ${{ secrets.AUTH_URL }} # FIX: Pass the actual secret value
+      QA_AUTH_URL: ${{ secrets.AUTH_URL }} # FIX: Pass the actual secret value
       
   # 2. QA Deployment Trigger
   qa_deployment_trigger:
