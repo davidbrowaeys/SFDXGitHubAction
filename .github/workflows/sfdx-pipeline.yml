@@ -51,10 +51,10 @@ jobs:
     with:
       target-env: 'qa'
       deployment-mode: 'DELTA'
+      delta-mode: 'branch'
       test-level: 'RunLocalTests'
       check-only: true
       compare-with: 'origin/develop'
-      delta-mode: 'branch'
     secrets: inherit
       
   # 2. QA Deployment Trigger
@@ -76,8 +76,8 @@ jobs:
     with:
       target-env: 'qa' 
       deployment-mode: 'DELTA'
+      delta-mode: 'branch'
       test-level: 'RunLocalTests'
       check-only: false 
       compare-with: 'origin/main'
-      delta-mode: 'branch'
     secrets: inherit
