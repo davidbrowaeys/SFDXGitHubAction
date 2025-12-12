@@ -28,4 +28,4 @@ jobs:
       check-only: true
       compare-with: 'origin/develop'
     secrets:
-      AUTH_URL: ${{ secrets.QA_AUTH_URL }}  #QA AUTH URL!
+      AUTH_URL: ${{ secrets.QA_AUTH_URL }}  #QA AUTH URL
