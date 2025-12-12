@@ -164,19 +164,3 @@ jobs:
     secrets:
       auth-url-secret-name: SF_UAT_AUTH_URL
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  # ----------------------------------------------------
-  # STEP 7: Prod Validation (Manual Approval Required)
-  # ----------------------------------------------------
-  prod_validation:
-    name: ✅ Prod Validation (Manual Approval)
-    needs: uat_deployment
-    if: always() && needs.uat_deployment.result == 'success'
-    environment: Production
-    
-    uses: owner/ci-actions/.github/workflows/continuous-integration.yml@main
-    
-    with:
-      target-env: 'prod'
-      deployment-mode: 'FULL' 
-      test-level: 'RunAllTestsInOrg
