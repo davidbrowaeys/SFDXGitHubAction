@@ -47,7 +47,7 @@ jobs:
   qa_validation_pr:
     name: 🧪 QA Validation (PR)
     needs: qa_validation_pr_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@f3242958c10b404887431da4206f15a882f66bda
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     with:
       target-env: 'qa'
       deployment-mode: 'DELTA'
@@ -73,7 +73,7 @@ jobs:
   qa_deployment:
     name: 🚀 QA Deployment (Push)
     needs: qa_deployment_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@f3242958c10b404887431da4206f15a882f66bda
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     with:
       target-env: 'qa' 
       deployment-mode: 'DELTA'
