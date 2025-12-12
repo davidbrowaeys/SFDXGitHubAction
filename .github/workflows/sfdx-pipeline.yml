@@ -41,7 +41,7 @@ jobs:
     if: github.event_name == 'pull_request' && github.base_ref == 'develop'
     
     # Correct structure: 'uses' is the top-level property under the job ID
-    uses:davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     
     # 'with' and 'secrets' are correctly nested under 'uses' job
     with:
@@ -64,7 +64,7 @@ jobs:
     needs: [set_comparison_vars, qa_validation_pr]
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     
-    uses:davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     
     with:
       target-env: 'qa' 
@@ -86,7 +86,7 @@ jobs:
     if: github.event_name == 'pull_request' && startsWith(github.base_ref, 'release/')
     environment: SIT
     
-    uses:davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     
     with:
       target-env: 'sit'
@@ -108,7 +108,7 @@ jobs:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/')
     environment: SIT
     
-    uses:davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     
     with:
       target-env: 'sit'
@@ -130,7 +130,7 @@ jobs:
     if: always() && needs.sit_deployment.result == 'success'
     environment: UAT
     
-    uses:davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     
     with:
       target-env: 'uat'
@@ -152,7 +152,7 @@ jobs:
     if: always() && needs.uat_validation.result == 'success'
     environment: UAT
     
-    uses:davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     
     with:
       target-env: 'uat'
