@@ -32,9 +32,9 @@ jobs:
   # QA STAGE (Validation & Deployment)
   # ====================================================
 
-  # 1. QA Validation Trigger (Standard Job)
+  # 1. QA Validation Trigger
   qa_validation_pr_trigger:
-    runs-on: ubuntu-latest # Required for the parser
+    runs-on: ubuntu-latest
     environment: QA
     needs: set_comparison_vars
     if: github.event_name == 'pull_request' && github.base_ref == 'develop'
@@ -43,11 +43,10 @@ jobs:
     steps:
       - run: echo "Triggering QA Validation..."
   
-  # 1. QA Validation Call (Reusable Workflow Job)
+  # 1. QA Validation Call
   qa_validation_pr:
     name: 🧪 QA Validation (PR)
     needs: qa_validation_pr_trigger
-    # The 'if' and 'environment' logic is handled by the trigger job
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     with:
       target-env: 'qa'
@@ -56,11 +55,13 @@ jobs:
       check-only: true
       compare-with: ${{ needs.qa_validation_pr_trigger.outputs.compare_branch }}
     secrets:
-      auth-url-secret-name: ${{ secrets.AUTH_URL }}
+      # FIX: Pass the literal name to 'with' (implicitly done by the reusable workflow's logic)
+      # PASS: Make the actual secret value available to the reusable workflow
+      AUTH_URL: ${{ secrets.AUTH_URL }} 
 
-  # 2. QA Deployment Trigger (Standard Job)
+  # 2. QA Deployment Trigger
   qa_deployment_trigger:
-    runs-on: ubuntu-latest # Required for the parser
+    runs-on: ubuntu-latest
     environment: QA
     needs: set_comparison_vars
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
@@ -69,7 +70,7 @@ jobs:
     steps:
       - run: echo "Triggering QA Deployment..."
 
-  # 2. QA Deployment Call (Reusable Workflow Job)
+  # 2. QA Deployment Call
   qa_deployment:
     name: 🚀 QA Deployment (Push)
     needs: qa_deployment_trigger
@@ -81,4 +82,26 @@ jobs:
       check-only: false 
       compare-with: ${{ needs.qa_deployment_trigger.outputs.compare_branch }}
     secrets:
-      auth-url-secret-name: ${{ secrets.AUTH_URL }}
+      # PASS: Make the actual secret value available to the reusable workflow
+      AUTH_URL: ${{ secrets.AUTH_URL }} 
+
+  # ====================================================
+  # SIT STAGE (Validation & Deployment)
+  # ====================================================
+
+  # 3. SIT Validation Trigger
+  sit_validation_pr_trigger:
+    runs-on: ubuntu-latest
+    needs: set_comparison_vars
+    if: github.event_name == 'pull_request' && startsWith(github.base_ref, 'release/')
+    environment: SIT
+    outputs:
+      compare_branch: ${{ needs.set_comparison_vars.outputs.compare_branch }}
+    steps:
+      - run: echo "Triggering SIT Validation..."
+
+  # 3. SIT Validation Call
+  sit_validation_pr:
+    name: 🔬 SIT Validation (Release PR)
+    needs: sit_validation_pr_trigger
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous
