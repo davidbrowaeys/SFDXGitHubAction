@@ -55,7 +55,9 @@ jobs:
       test-level: 'RunLocalTests'
       check-only: true
       compare-with: 'origin/develop'
-    secrets: inherit
+    secrets:
+      # Use a fixed, common key name for all stages
+      SFDX_AUTH_URL: ${{ secrets.AUTH_URL }}
       
   # 2. QA Deployment Trigger
   qa_deployment_trigger:
@@ -80,4 +82,6 @@ jobs:
       test-level: 'RunLocalTests'
       check-only: false 
       compare-with: 'origin/main'
-    secrets: inherit
+    secrets:
+      # Use a fixed, common key name for all stages
+      SFDX_AUTH_URL: ${{ secrets.AUTH_URL }}
