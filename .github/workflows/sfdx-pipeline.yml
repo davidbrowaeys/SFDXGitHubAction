@@ -39,6 +39,7 @@ jobs:
     name: 🧪 QA Validation (PR)
     needs: set_comparison_vars
     if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+    environment: QA
     
     # Correct structure: 'uses' is the top-level property under the job ID
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
@@ -61,8 +62,9 @@ jobs:
   # ----------------------------------------------------
   qa_deployment:
     name: 🚀 QA Deployment (Push)
-    needs: [set_comparison_vars, qa_validation_pr]
+    needs: set_comparison_vars
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    environment: QA
     
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     
