@@ -53,7 +53,8 @@ jobs:
       deployment-mode: 'DELTA'
       test-level: 'RunLocalTests'
       check-only: true
-      compare-with: ${{ needs.qa_validation_pr_trigger.outputs.compare_branch }}
+      compare-with: 'origin/develop'
+      delta-mode: 'branch'
     secrets: inherit
       
   # 2. QA Deployment Trigger
@@ -77,5 +78,6 @@ jobs:
       deployment-mode: 'DELTA'
       test-level: 'RunLocalTests'
       check-only: false 
-      compare-with: ${{ needs.qa_deployment_trigger.outputs.compare_branch }}
+      compare-with: 'origin/main'
+      delta-mode: 'branch'
     secrets: inherit
