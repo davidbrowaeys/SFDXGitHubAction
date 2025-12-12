@@ -1,5 +1,6 @@
-name: SFDX CI
+name: Safire
 
+# This workflow can be triggered manually, mimicking Azure DevOps parameters
 on:
   push:
     branches:
@@ -10,38 +11,371 @@ on:
       types: [assigned, opened, synchronize, reopened, edited]
       branches:
         - main
+  workflow_dispatch:
+    inputs:
+      targetEnv:
+        description: 'Salesforce Target Environment Alias (e.g., prod, sandbox)'
+        required: true
+        default: 'sandbox'
+      authUrl:
+        description: 'SFDX Auth URL (Store this as a GitHub Secret and use the secret name here)'
+        required: true
+      deploymentMode:
+        description: 'Deployment Mode (DELTA or FULL)'
+        required: true
+        default: 'DELTA'
+      deltaMode:
+        description: 'Delta Mode (branch or local)'
+        required: true
+        default: 'branch'
+      compareWith:
+        description: 'Git branch to compare against for Delta deployment'
+        required: true
+        default: 'origin/master'
+      testLevel:
+        description: 'Test Level (NoTestRun, RunLocalTests, RunSpecifiedTests, RunAllTestsInOrg)'
+        required: true
+        default: 'RunLocalTests'
+      severityThreshold:
+        description: 'Code Analyzer Severity Threshold'
+        required: true
+        default: '2'
+      checkOnly:
+        description: 'Run deployment as check-only (validation)'
+        required: true
+        type: boolean
+        default: true
+      minCodeCoverage:
+        description: 'Minimum Apex Code Coverage Percentage (optional)'
+        required: false
+        default: ''
 
 jobs:
-  build:
-
+  salesforce_ci:
     runs-on: ubuntu-latest
 
-    environment: CI
+    # Use the specified Docker image for all steps in this job
+    container: brovasi/dxb
 
-    strategy:
-      matrix:
-        node-version: [15.x]
+    # Define environment variables based on workflow inputs
+    env:
+      TARGET_ENV: ${{ github.event.inputs.targetEnv }}
+      SFDX_AUTH_URL_SECRET_NAME: ${{ github.event.inputs.authUrl }} # The name of the secret
+      DEPLOYMENT_MODE: ${{ github.event.inputs.deploymentMode }}
+      DELTA_MODE: ${{ github.event.inputs.deltaMode }}
+      COMPARE_WITH: ${{ github.event.inputs.compareWith }}
+      TEST_LEVEL: ${{ github.event.inputs.testLevel }}
+      SEVERITY_THRESHOLD: ${{ github.event.inputs.severityThreshold }}
+      CHECK_ONLY: ${{ github.event.inputs.checkOnly }}
+      MIN_CODE_COVERAGE: ${{ github.event.inputs.minCodeCoverage }}
+      OUTPUT_DIR: 'delta'
+      BASE_DIR: 'force-app/main/default'
+      CHANGE_DETECTION_TYPE: 'classes'
+      TEST_CLASS_REGEX: '.*Test.*$'
+      SEQUENTIAL: 'true' # Hardcoded as 'true' from your deploy step
+      PRE_DESTRUCTIVE_PATH: '' # Placeholder for optional path
+      POST_DESTRUCTIVE_PATH: '' # Placeholder for optional path
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v1
-      with:
-        node-version: ${{ matrix.node-version }}
-    - shell: bash
-      name: Install SFDX and plugins
-      run: |
-        echo $GITHUB_EVENT_NAME
-        npm install -g sfdx-cli@latest
-        echo 'y' | sfdx plugins:install dxb@latest
-    - shell: bash
-      name: Authenticate
-      env:
-        AUTHURL: ${{ secrets.AUTH_URL }}
-      run: |
-        echo "$AUTHURL" > creds.txt
-        sfdx force:auth:sfdxurl:store -f creds.txt -a CI
-    - shell: bash
-      name: Deploy to CI
-      run: |
-        sfdx force:source:deploy -p force-app -u CI
+      - name: ⬇️ Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch all history for accurate delta calculation
+          fetch-depth: 0
+      
+      - name: 🔑 Salesforce Login using Auth URL
+        # The Auth URL secret is dynamically retrieved using the secret name provided in inputs
+        run: |
+          echo "Login using Sfdx Auth Url to $TARGET_ENV"
+          # Retrieve the secret value using environment variable expansion
+          AUTH_URL_VALUE=$(echo "${{ secrets[env.SFDX_AUTH_URL_SECRET_NAME] }}")
+          echo "$AUTH_URL_VALUE" > credentials.txt
+          sf org login sfdx-url -f credentials.txt -a $TARGET_ENV -s
+        # The condition logic from Azure is implicitly covered by making the input required.
+        # If the secret is not configured correctly, this step will fail.
+        # Condition logic from ADO: ${{ if ne(parameters.authUrl, '') }}
+        # Note: You must store the SFDX Auth URL as a **GitHub Secret** (e.g., `SF_PROD_AUTH_URL`)
+        # and pass that secret's name to the `authUrl` input.
+
+      - name: 🧮 Calculate Delta
+        id: delta_calc
+        run: |
+          # The complex logic from your Azure step, using the container's tools
+          # and setting step outputs.
+          
+          # Initialize files for test classes and apex classes
+          echo "" > testClasses
+          echo "" > apexclasses
+          
+          # Set git config for rename detection
+          git config diff.renameLimit 999999
+          
+          if [ "$DEPLOYMENT_MODE" = "FULL" ]
+          then
+              echo "Deployment Mode: FULL"
+              # Full manifest generation logic
+              allPackageDirectories=""
+              json=$(cat sfdx-project.json)
+              for i in $(echo "$json" | jq -r '.packageDirectories[].path'); do
+                allPackageDirectories+=" --source-dir $i"
+              done
+              echo "sf project generate manifest $allPackageDirectories -d $OUTPUT_DIR"
+              sf project generate manifest $allPackageDirectories -d $OUTPUT_DIR
+              echo "./**/*.cls" > apexclasses # All classes for FULL scan
+          else
+              echo "Deployment Mode: DELTA"
+              echo "sf dxb source delta -m $DELTA_MODE -k $COMPARE_WITH -p $OUTPUT_DIR -g"
+              sf dxb source delta -m $DELTA_MODE -k $COMPARE_WITH -p $OUTPUT_DIR -g
+              
+              # Capture changed Apex classes for Code Analyzer
+              sf dxb source delta -m $DELTA_MODE -k $COMPARE_WITH --json | jq -c '.result.deltaMeta[] | select (endswith(".cls"))' | paste -sd, - | sed 's/"//g' > apexclasses
+              
+              cat $OUTPUT_DIR/package.xml
+              
+              if [ "$TEST_LEVEL" = "RunSpecifiedTests" ]
+              then 
+                echo "sf dxb source fetchtest -x $OUTPUT_DIR/package.xml -t $CHANGE_DETECTION_TYPE --test-class-name-regex $TEST_CLASS_REGEX -d . > testClasses"
+                sf dxb source fetchtest -x $OUTPUT_DIR/package.xml -t $CHANGE_DETECTION_TYPE --test-class-name-regex $TEST_CLASS_REGEX -d .> testClasses
+                cat testClasses
+              fi
+          fi
+          
+          # Check if the delta package is empty (no changes)
+          if [ ! -d "$OUTPUT_DIR" ] || [ ! -s "$OUTPUT_DIR/package.xml" ] || ! grep -q "<types>" "$OUTPUT_DIR/package.xml"
+          then
+            echo "::set-output name=noChanges::true"
+            echo "No changes detected to deploy."
+          else
+            echo "::set-output name=noChanges::false"
+          fi
+        shell: bash
+      
+      - name: ⬆️ Publish Delta Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: delta-package
+          path: ${{ env.OUTPUT_DIR }}
+        # This step runs regardless of whether the delta was empty, to publish the package.xml
+
+      - name: 🛡️ Run Code Analyzer
+        id: code_scan
+        if: steps.delta_calc.outputs.noChanges == 'false'
+        run: |
+          echo Start code scanning...
+          APEX_CLASSES=$(cat apexclasses)
+          
+          if [[ ! -z "$APEX_CLASSES" ]]
+          then
+              echo "TARGETCLASSES = $APEX_CLASSES"
+              mkdir -p codeanalyzeroutput
+              # Save the output to a specific HTML file
+              sf code-analyzer run --target $APEX_CLASSES -f "codeanalyzeroutput/code-scanner-results.html" --severity-threshold $SEVERITY_THRESHOLD
+              echo "::set-output name=codeScannerReportExists::true"
+          else
+              echo "Nothing to scan"
+              echo "::set-output name=codeScannerReportExists::false"
+          fi
+        shell: bash
+        continue-on-error: true # Match ADO `continueOnError: true`
+
+      - name: ⬆️ Publish Code Analyzer Report Artifact
+        if: steps.code_scan.outputs.codeScannerReportExists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Code-Analyzer-Report
+          path: codeanalyzeroutput/code-scanner-results.html
+          # GitHub Actions doesn't have a direct equivalent to "PublishHtmlReport"
+          # This publishes the HTML file as an artifact for manual download/viewing.
+
+      - name: 🚀 Deploy to Salesforce
+        id: deploy
+        if: steps.delta_calc.outputs.noChanges == 'false'
+        run: |
+          SEQUENTIAL="$SEQUENTIAL"
+          OPTIONS=""
+          CHECKONLY=$(echo "$CHECK_ONLY" | tr "[:upper:]" "[:lower:]")
+          TESTLEVEL="$TEST_LEVEL"
+          TESTCLASSES=""
+          PREDESTRUCTIVEPATH="$PRE_DESTRUCTIVE_PATH"
+          POSTDESTRUCTIVEPATH="$POST_DESTRUCTIVE_PATH"
+
+          echo -e "--------------------------"
+          echo -e "|     @Job Details       |"
+          echo -e "--------------------------"
+          echo "-     Env: $TARGET_ENV"
+          echo "-     Check Only: $CHECKONLY"
+          echo "-     Test Level: $TESTLEVEL"
+          echo "-     Sequential Deployment: $SEQUENTIAL"
+          
+          if [ "$TESTLEVEL" = "RunSpecifiedTests" ]
+          then 
+            TESTCLASSES=$(<testClasses)
+            HASAPEX=$(grep "<name>ApexClass</name>" "$OUTPUT_DIR/package.xml")
+            if [ ! -z "$TESTCLASSES" ]
+            then 
+              # Convert comma-separated list of test classes to -t TestClassA -t TestClassB format
+              input_string="$TESTCLASSES"
+              TESTCLASSES=""
+              IFS=',' read -ra values <<< "$input_string"
+              for value in "${values[@]}"; do
+                TESTCLASSES+="-t $value "
+              done
+              echo "-     Test Classes: $TESTCLASSES"
+            elif [ ! -z "$HASAPEX" ] #no test classes found but apexclasses as part of the package, then throw error
+            then 
+              echo "Deployment failed: No associated test classes were found but seems like apex classes are changing."
+              exit 1
+            else
+              TESTLEVEL="NoTestRun"
+            fi
+          fi
+          
+          if [ "$CHECKONLY" = "true" ]; then
+              OPTIONS="$OPTIONS --dry-run"
+          fi
+          
+          if [ -n "$PREDESTRUCTIVEPATH" ] && [ -f "$PREDESTRUCTIVEPATH" ]; then
+              OPTIONS="$OPTIONS --pre-destructive-changes $PREDESTRUCTIVEPATH"
+          fi
+          if [ -n "$POSTDESTRUCTIVEPATH" ] && [ -f "$POSTDESTRUCTIVEPATH" ]; then
+              OPTIONS="$OPTIONS --post-destructive-changes $POSTDESTRUCTIVEPATH"
+          fi
+
+          if [ "$TESTLEVEL" = "RunSpecifiedTests" ] || [ "$TESTLEVEL" = "RunLocalTests" ] ; then 
+            OPTIONS="$OPTIONS --junit --results-dir testresults/apex --coverage-formatters cobertura"; 
+            echo "::set-output name=TEST_RUN_EXPECTED::true"
+          else
+            echo "::set-output name=TEST_RUN_EXPECTED::false"
+          fi
+          
+          echo "-     Other options: $OPTIONS"
+          echo "Running deployment..."
+          sf project start deploy -o $TARGET_ENV -x $OUTPUT_DIR/package.xml -l $TESTLEVEL $TESTCLASSES $OPTIONS -g --wait 666 --json > deployResult.json
+          cat deployResult.json | jq 
+        shell: bash
+        # ADO condition: and(succeeded(), ne(variables['noChanges'], 'true'))
+
+      - name: 📋 Deployment Result
+        id: deploy_result
+        if: always() && steps.delta_calc.outputs.noChanges == 'false'
+        run: |
+          JOBID=$(cat deployResult.json | jq -r '.result.id')
+          FAILEDPREDEPLOY=$(cat deployResult.json | jq -r '.exitCode')
+          SUCCESS=$(cat deployResult.json | jq -r '.result.success')
+          NUMTESTSRUN=$(cat deployResult.json | jq -r '.result.details.runTestResult.numTestsRun')
+          NUMBERCOMPONENTSTOTAL=$(cat deployResult.json | jq -r '.result.numberComponentsTotal')
+          NUMBERCOMPONENTERRORS=$(cat deployResult.json | jq -r '.result.numberComponentErrors')
+          TEST_RUN_EXPECTED="${{ steps.deploy.outputs.TEST_RUN_EXPECTED }}" # Retrieve output from deploy step
+
+          echo "Deployment Result Info:"
+          echo "JOBID: $JOBID"
+          echo "NUMTESTSRUN: $NUMTESTSRUN"
+          echo "NUMBERCOMPONENTSTOTAL: $NUMBERCOMPONENTSTOTAL"
+          echo "NUMBERCOMPONENTERRORS: $NUMBERCOMPONENTERRORS"
+          
+          # ADO variable: noChanges is handled by the overall `if: steps.delta_calc.outputs.noChanges == 'false'`
+          
+          if [ "$JOBID" = "null" ]
+          then
+            echo "::set-output name=TESTHASRUN::false"
+            if [ "$FAILEDPREDEPLOY" != "0" ]
+            then
+              echo "Deployment could not start"
+              echo "::error::DEPLOYMENT FAILED. Check job for more details."
+              cat deployResult.json
+              exit 1
+            fi
+          else
+            # Retrieve test results and coverage data
+            sf project deploy report --junit --coverage-formatters cobertura --results-dir testresults/apex -i $JOBID
+
+            if [ "$NUMTESTSRUN" = "0" ]
+            then
+              echo "::set-output name=TESTHASRUN::false"
+            else
+              echo "::set-output name=TESTHASRUN::true"
+            fi
+            
+            if [ "$SUCCESS" = "false" ]
+            then
+              if [ "$NUMTESTSRUN" = "0" ]
+              then 
+                # Component failure logic
+                errors=$(cat deployResult.json | jq -r '.result.details.componentFailures[] | [.fullName, .componentType, .lineNumber, .problem] | @tsv' | sed 's/\t/    /g')
+                echo "::error::DEPLOYMENT FAILED: $NUMBERCOMPONENTERRORS error(s) out of $NUMBERCOMPONENTSTOTAL component(s). Details:\n$errors"
+              else
+                # Test failure logic
+                TESTNUMFAILURES=$(cat deployResult.json | jq -r '.result.details.runTestResult.numFailures')
+                errors=$(cat deployResult.json | jq -r '.result.details.runTestResult.failures[] | [.name, .methodName, .message, .stackTrace] | @tsv' | sed 's/\t/    /g')
+                echo "::error::APEX TEST CLASSES FAILED: $TESTNUMFAILURES out of $NUMTESTSRUN. Details:\n$errors"
+              fi
+              
+              # GitHub Actions doesn't have an equivalent of `BUILD_REASON == 'PullRequest'` + custom curl to post comments.
+              # A dedicated GitHub Action like `peter-evans/create-or-update-comment` would be needed, or you can leverage
+              # the default PR decoration from the test publishing step below.
+              exit 1
+            fi
+          fi
+        shell: bash
+
+      # Dotnet is required for ReportGenerator (which runs on Dotnet)
+      - name: ⚙️ Install DotNet
+        uses: actions/setup-dotnet@v4
+        if: steps.deploy_result.outputs.TESTHASRUN == 'true'
+        with:
+          dotnet-version: '8.x' # Used 8.x to match the ADO version 8.0.x
+
+      - name: 📝 Verify Code Coverage and Performance
+        id: verify_coverage
+        if: steps.deploy_result.outputs.TESTHASRUN == 'true'
+        run: |
+          # The ADO task used DotNet to install ReportGenerator. 
+          # Since the container has sf/dxb and this step is running *after* dotnet setup, 
+          # we can just use the provided sf dxb commands.
+
+          if [ -e "testresults/apex/coverage/cobertura.xml" ] && [ -e "./testresults/apex/junit/junit.xml" ]
+          then
+            echo "sf dxb apex coverage cleanup -f testresults/apex/coverage/cobertura.xml"
+            sf dxb apex coverage cleanup -f testresults/apex/coverage/cobertura.xml
+            
+            if [ -n "$MIN_CODE_COVERAGE" ]; then
+              echo "sf dxb apex coverage check -f testresults/apex/coverage/cobertura.xml -c $MIN_CODE_COVERAGE"
+              sf dxb apex coverage check -f testresults/apex/coverage/cobertura.xml -c $MIN_CODE_COVERAGE
+            fi
+            
+            # Check performance is hardcoded to 3 seconds from your ADO script
+            if [ "${{ env.CHECK_PERFORMANCE }}" != "false" ]; then
+              echo "sf dxb junit check -p ./testresults/apex/junit/junit.xml -t 3"
+              sf dxb junit check -p ./testresults/apex/junit/junit.xml -t 3
+            fi
+          fi
+        shell: bash
+        # ADO condition: and( always(), eq(variables['TESTHASRUN'], 'true'), ne(variables['noChanges'], 'true') )
+
+      - name: 📊 Generate Code Coverage Report
+        uses: danielpalme/ReportGenerator-GitHub-Action@v4
+        if: steps.deploy_result.outputs.TESTHASRUN == 'true'
+        with:
+          reports: 'testresults/**/coverage/cobertura.xml'
+          targetdir: 'testresults/coverage-report' # Use a different folder for the final report
+          reporttypes: 'HtmlInline_AzurePipelines;HTMLChart;Cobertura'
+          title: 'Code Coverage'
+          
+      - name: ⬆️ Publish Code Coverage Results
+        uses: codecov/codecov-action@v4
+        if: steps.deploy_result.outputs.TESTHASRUN == 'true'
+        with:
+          files: 'testresults/coverage-report/Cobertura.xml' # Use the Cobertura file generated by ReportGenerator
+          fail_ci_if_error: true
+          # Note: This is a common and versatile GitHub Action for publishing coverage.
+          # It requires setting up a Codecov token secret (`CODECOV_TOKEN`) on your repo.
+
+      - name: ⬆️ Publish JUnit Results
+        uses: mikepenz/action-junit-report@v4
+        if: steps.deploy_result.outputs.TESTHASRUN == 'true'
+        with:
+          report_paths: 'testresults/**/junit/junit.xml'
+          check_name: 'Apex Unit Test Results - ${{ env.TARGET_ENV }}'
+          fail_on_error: true
+          # This action is a good replacement for `PublishTestResults@2`
+          # It publishes the results as a check on GitHub, providing good visibility.
