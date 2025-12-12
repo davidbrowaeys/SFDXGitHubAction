@@ -54,9 +54,7 @@ jobs:
       test-level: 'RunLocalTests'
       check-only: true
       compare-with: ${{ needs.qa_validation_pr_trigger.outputs.compare_branch }}
-      auth-url-secret-name: 'QA_AUTH_URL' # FIX: Pass literal secret name
-    secrets:
-      QA_AUTH_URL: ${{ secrets.AUTH_URL }} # FIX: Pass the actual secret value
+    secrets: inherit
       
   # 2. QA Deployment Trigger
   qa_deployment_trigger:
@@ -80,6 +78,4 @@ jobs:
       test-level: 'RunLocalTests'
       check-only: false 
       compare-with: ${{ needs.qa_deployment_trigger.outputs.compare_branch }}
-      auth-url-secret-name: 'QA_AUTH_URL' # FIX: Pass literal secret name
-    secrets:
-      QA_AUTH_URL: ${{ secrets.AUTH_URL }} # FIX: Pass the actual secret value
+    secrets: inherit
