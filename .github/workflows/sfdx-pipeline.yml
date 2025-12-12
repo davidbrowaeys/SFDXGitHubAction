@@ -35,6 +35,7 @@ jobs:
   # 1. QA Validation Trigger (Standard Job)
   qa_validation_pr_trigger:
     runs-on: ubuntu-latest # Required for the parser
+    environment: QA
     needs: set_comparison_vars
     if: github.event_name == 'pull_request' && github.base_ref == 'develop'
     outputs:
@@ -54,13 +55,11 @@ jobs:
       test-level: 'RunLocalTests'
       check-only: true
       compare-with: ${{ needs.qa_validation_pr_trigger.outputs.compare_branch }}
-    secrets:
-      auth-url-secret-name: SF_QA_AUTH_URL 
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   # 2. QA Deployment Trigger (Standard Job)
   qa_deployment_trigger:
     runs-on: ubuntu-latest # Required for the parser
+    environment: QA
     needs: set_comparison_vars
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     outputs:
@@ -79,174 +78,3 @@ jobs:
       test-level: 'RunLocalTests'
       check-only: false 
       compare-with: ${{ needs.qa_deployment_trigger.outputs.compare_branch }}
-    secrets:
-      auth-url-secret-name: SF_QA_AUTH_URL 
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  # ====================================================
-  # SIT STAGE (Validation & Deployment)
-  # ====================================================
-
-  # 3. SIT Validation Trigger (Standard Job)
-  sit_validation_pr_trigger:
-    runs-on: ubuntu-latest
-    needs: set_comparison_vars
-    if: github.event_name == 'pull_request' && startsWith(github.base_ref, 'release/')
-    environment: SIT # Environment must be on the standard job
-    outputs:
-      compare_branch: ${{ needs.set_comparison_vars.outputs.compare_branch }}
-    steps:
-      - run: echo "Triggering SIT Validation..."
-
-  # 3. SIT Validation Call (Reusable Workflow Job)
-  sit_validation_pr:
-    name: 🔬 SIT Validation (Release PR)
-    needs: sit_validation_pr_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-    with:
-      target-env: 'sit'
-      deployment-mode: 'DELTA'
-      test-level: 'RunLocalTests'
-      check-only: true
-      compare-with: ${{ needs.sit_validation_pr_trigger.outputs.compare_branch }}
-    secrets:
-      auth-url-secret-name: SF_SIT_AUTH_URL
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  # 4. SIT Deployment Trigger (Standard Job)
-  sit_deployment_trigger:
-    runs-on: ubuntu-latest
-    needs: set_comparison_vars
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/')
-    environment: SIT # Environment must be on the standard job
-    outputs:
-      compare_branch: ${{ needs.set_comparison_vars.outputs.compare_branch }}
-    steps:
-      - run: echo "Triggering SIT Deployment..."
-
-  # 4. SIT Deployment Call (Reusable Workflow Job)
-  sit_deployment:
-    name: 🚀 SIT Deployment (Release Push)
-    needs: sit_deployment_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-    with:
-      target-env: 'sit'
-      deployment-mode: 'DELTA'
-      test-level: 'RunLocalTests'
-      check-only: false
-      compare-with: ${{ needs.sit_deployment_trigger.outputs.compare_branch }}
-    secrets:
-      auth-url-secret-name: SF_SIT_AUTH_URL
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      
-  # ====================================================
-  # UAT STAGE (Validation & Deployment)
-  # ====================================================
-
-  # 5. UAT Validation Trigger (Standard Job)
-  uat_validation_trigger:
-    runs-on: ubuntu-latest
-    needs: sit_deployment
-    if: always() && needs.sit_deployment.result == 'success'
-    environment: UAT # Environment must be on the standard job (triggers approval)
-    outputs:
-      compare_branch: 'HEAD^'
-    steps:
-      - run: echo "Triggering UAT Validation..."
-
-  # 5. UAT Validation Call (Reusable Workflow Job)
-  uat_validation:
-    name: ✅ UAT Validation (Manual Approval)
-    needs: uat_validation_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-    with:
-      target-env: 'uat'
-      deployment-mode: 'FULL'
-      test-level: 'RunAllTestsInOrg'
-      check-only: true
-      compare-with: ${{ needs.uat_validation_trigger.outputs.compare_branch }}
-    secrets:
-      auth-url-secret-name: SF_UAT_AUTH_URL
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  # 6. UAT Deployment Trigger (Standard Job)
-  uat_deployment_trigger:
-    runs-on: ubuntu-latest
-    needs: uat_validation
-    if: always() && needs.uat_validation.result == 'success'
-    environment: UAT # Environment must be on the standard job (triggers approval)
-    outputs:
-      compare_branch: 'HEAD^'
-    steps:
-      - run: echo "Triggering UAT Deployment..."
-
-  # 6. UAT Deployment Call (Reusable Workflow Job)
-  uat_deployment:
-    name: 🚀 UAT Deployment (Manual Approval)
-    needs: uat_deployment_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-    with:
-      target-env: 'uat'
-      deployment-mode: 'DELTA'
-      test-level: 'RunAllTestsInOrg'
-      check-only: false
-      compare-with: ${{ needs.uat_deployment_trigger.outputs.compare_branch }}
-    secrets:
-      auth-url-secret-name: SF_UAT_AUTH_URL
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      
-  # ====================================================
-  # PROD STAGE (Validation & Deployment)
-  # ====================================================
-
-  # 7. Prod Validation Trigger (Standard Job)
-  prod_validation_trigger:
-    runs-on: ubuntu-latest
-    needs: uat_deployment
-    if: always() && needs.uat_deployment.result == 'success'
-    environment: Production # Environment must be on the standard job (triggers approval)
-    outputs:
-      compare_branch: 'HEAD^'
-    steps:
-      - run: echo "Triggering Prod Validation..."
-
-  # 7. Prod Validation Call (Reusable Workflow Job)
-  prod_validation:
-    name: ✅ Prod Validation (Manual Approval)
-    needs: prod_validation_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-    with:
-      target-env: 'prod'
-      deployment-mode: 'FULL' 
-      test-level: 'RunAllTestsInOrg' 
-      check-only: true
-      compare-with: ${{ needs.prod_validation_trigger.outputs.compare_branch }}
-    secrets:
-      auth-url-secret-name: SF_PROD_AUTH_URL
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  # 8. Prod Deployment Trigger (Standard Job)
-  prod_deployment_trigger:
-    runs-on: ubuntu-latest
-    needs: prod_validation
-    if: always() && needs.prod_validation.result == 'success'
-    environment: Production # Environment must be on the standard job (triggers approval)
-    outputs:
-      compare_branch: 'HEAD^'
-    steps:
-      - run: echo "Triggering Prod Deployment..."
-
-  # 8. Prod Deployment Call (Reusable Workflow Job)
-  prod_deployment:
-    name: 👑 Prod Deployment (Manual Approval)
-    needs: prod_deployment_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-    with:
-      target-env: 'prod'
-      deployment-mode: 'DELTA'
-      test-level: 'RunAllTestsInOrg'
-      check-only: false 
-      compare-with: ${{ needs.prod_deployment_trigger.outputs.compare_branch }}
-    secrets:
-      auth-url-secret-name: SF_PROD_AUTH_URL
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
