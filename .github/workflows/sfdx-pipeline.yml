@@ -47,7 +47,7 @@ jobs:
     name: 🧪 QA Validation (PR)
     needs: qa_validation_pr_trigger
     # The 'if' and 'environment' logic is handled by the trigger job
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/continuous-integration.yml@main
     with:
       target-env: 'qa'
       deployment-mode: 'DELTA'
@@ -72,7 +72,7 @@ jobs:
   qa_deployment:
     name: 🚀 QA Deployment (Push)
     needs: qa_deployment_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/continuous-integration.yml@main
     with:
       target-env: 'qa' 
       deployment-mode: 'DELTA'
@@ -102,7 +102,7 @@ jobs:
   sit_validation_pr:
     name: 🔬 SIT Validation (Release PR)
     needs: sit_validation_pr_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/continuous-integration.yml@main
     with:
       target-env: 'sit'
       deployment-mode: 'DELTA'
@@ -128,7 +128,7 @@ jobs:
   sit_deployment:
     name: 🚀 SIT Deployment (Release Push)
     needs: sit_deployment_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/continuous-integration.yml@main
     with:
       target-env: 'sit'
       deployment-mode: 'DELTA'
@@ -158,7 +158,7 @@ jobs:
   uat_validation:
     name: ✅ UAT Validation (Manual Approval)
     needs: uat_validation_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/continuous-integration.yml@main
     with:
       target-env: 'uat'
       deployment-mode: 'FULL'
@@ -184,7 +184,7 @@ jobs:
   uat_deployment:
     name: 🚀 UAT Deployment (Manual Approval)
     needs: uat_deployment_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/continuous-integration.yml@main
     with:
       target-env: 'uat'
       deployment-mode: 'DELTA'
@@ -214,7 +214,7 @@ jobs:
   prod_validation:
     name: ✅ Prod Validation (Manual Approval)
     needs: prod_validation_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/continuous-integration.yml@main
     with:
       target-env: 'prod'
       deployment-mode: 'FULL' 
@@ -240,7 +240,7 @@ jobs:
   prod_deployment:
     name: 👑 Prod Deployment (Manual Approval)
     needs: prod_deployment_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    uses: davidbrowaeys/SafireForGitHub/continuous-integration.yml@main
     with:
       target-env: 'prod'
       deployment-mode: 'DELTA'
