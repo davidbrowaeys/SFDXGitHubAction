@@ -11,23 +11,6 @@ on:
       - 'release/**'
 
 jobs:
-  # ----------------------------------------------------
-  # 🔑 Global Helper: Determine Comparison Branches (Standard Job)
-  # ----------------------------------------------------
-  set_comparison_vars:
-    runs-on: ubuntu-latest
-    outputs:
-      compare_branch: ${{ steps.compare.outputs.branch }}
-    steps:
-      - id: compare
-        run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "::set-output name=branch::${{ github.base_ref }}"
-          else
-            echo "::set-output name=branch::HEAD^"
-          fi
-        shell: bash
-
   # ====================================================
   # QA STAGE (Validation & Deployment)
   # ====================================================
@@ -35,6 +18,7 @@ jobs:
   # 1. QA Validation Trigger
   qa_validation_pr:
     name: 🧪 QA Validation (PR)
+    environment: QA
     if: github.event_name == 'pull_request' && github.base_ref == 'refs/heads/develop'
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     with:
@@ -47,24 +31,6 @@ jobs:
     secrets:
       # Use a fixed, common key name for all stages
       SFDX_AUTH_URL: ${{ secrets.AUTH_URL }}
-      
-  # 2. QA Deployment Trigger
-  qa_deployment_trigger:
-    runs-on: ubuntu-latest
-    environment: QA
-    needs: set_comparison_vars
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-    outputs:
-      compare_branch: ${{ needs.set_comparison_vars.outputs.compare_branch }}
-    steps:
-      - run: echo "Triggering QA Deployment..."
-
-  # 2. QA Deployment Call
-  qa_deployment:
-    name: 🚀 QA Deployment (Push)
-    needs: qa_deployment_trigger
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-    with:
       target-env: 'qa' 
       deployment-mode: 'DELTA'
       delta-mode: 'branch'
