@@ -32,12 +32,3 @@ jobs:
     secrets:
       # Use a fixed, common key name for all stages
       SFDX_AUTH_URL: ${{ secrets.AUTH_URL }}
-      target-env: 'qa' 
-      deployment-mode: 'DELTA'
-      delta-mode: 'branch'
-      test-level: 'RunLocalTests'
-      check-only: false 
-      compare-with: 'origin/main'
-    secrets:
-      # Use a fixed, common key name for all stages
-      SFDX_AUTH_URL: ${{ secrets.AUTH_URL }}
