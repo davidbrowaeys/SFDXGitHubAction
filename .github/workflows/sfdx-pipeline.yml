@@ -27,5 +27,6 @@ jobs:
       test-level: 'RunLocalTests'
       check-only: true
       compare-with: 'origin/develop'
+      run-code-scanner: true
     secrets:
       AUTH_URL: ${{ secrets.QA_AUTH_URL }}  #QA AUTH URL
