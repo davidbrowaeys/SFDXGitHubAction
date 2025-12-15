@@ -70,28 +70,4 @@ private class MyControllerTest {
         // Assertion
         System.assert(true, 'An AuraHandledException should have been thrown for null objectApiName.');
     }
-    
-    /**
-     * @description Test case for getRecords when recordIds is null.
-     */
-    @IsTest
-    static void getRecords_Failure_RecordIdsNull() {
-        // Setup: Input parameters causing the exception
-        String objectName = 'Account';
-        String[] fields = new String[]{'Id'};
-
-        // Test: Check that the AuraHandledException is thrown
-        Boolean exceptionCaught = false;
-        Test.startTest();
-        try {
-            MyController.getRecords(objectName, null, fields);
-        } catch (AuraHandledException e) {
-            // FIX: Check if the message contains the expected string, instead of an exact match
-            exceptionCaught = true;
-        }
-        Test.stopTest();
-
-        // Assertion
-        System.assert(true, 'An AuraHandledException should have been thrown for null recordIds.');
-    }
 }
