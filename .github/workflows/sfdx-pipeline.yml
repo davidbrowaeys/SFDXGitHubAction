@@ -12,7 +12,7 @@ on:
 
 jobs:
   # ====================================================
-  # QA STAGE (Validation & Deployment)
+  # PR - QA STAGE (Validation & Deployment)
   # ====================================================
 
   # 1. QA Validation Trigger
