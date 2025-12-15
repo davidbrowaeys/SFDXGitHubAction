@@ -22,11 +22,7 @@ jobs:
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     with:
       target-env: 'QA'
-      deployment-mode: 'DELTA'
-      delta-mode: 'branch'
-      test-level: 'RunLocalTests'
       check-only: true
-      compare-with: 'origin/develop'
       run-code-scanner: true
     secrets:
       AUTH_URL: ${{ secrets.QA_AUTH_URL }}  #QA AUTH URL
