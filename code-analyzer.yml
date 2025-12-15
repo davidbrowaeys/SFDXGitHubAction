@@ -789,12 +789,7 @@ engines:
     # and "plugin:@lwc/lwc-platform/recommended" configurations to Code Analyzer.
     # See https://github.com/salesforce/eslint-config-lwc and https://www.npmjs.com/package/@lwc/eslint-plugin-lwc-platform.
     disable_lwc_base_config: true # Modified from: false
-
-    # Whether to turn off the default base configuration that supplies the SLDS rules for Lightning Web Components and Aura Components.
-    # The base configuration for SLDS adds the rules from the "plugin:@salesforce-ux/eslint-plugin-slds/recommended" configuration to Code Analyzer.
-    # See https://www.npmjs.com/package/@salesforce-ux/eslint-plugin-slds
-    disable_slds_base_config: false
-
+    
     # Whether to turn off the default base configuration that supplies the standard rules for TypeScript files
     # The base configuration for TypeScript files adds the rules from the "plugin:@typescript-eslint:all" configuration to Code Analyzer.
     # See https://typescript-eslint.io/rules and https://eslint.org/docs/latest/rules for the lists of rules.
