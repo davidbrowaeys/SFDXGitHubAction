@@ -94,7 +94,5 @@ public inherited sharing class Utils {
     }
     return '*' + plainPhone.substring(plainPhone.length() - 4);
   }
-  public static testGetGlobalDescribe(){
-    Map<String, Schema.SObjectType> gd = Schema.getGlobalDescribe();
-  }
 }
+
