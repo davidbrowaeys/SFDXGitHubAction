@@ -22,6 +22,7 @@ jobs:
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     with:
       target-env: 'QA'
+      deployment-mode: 'DELA'
       check-only: true
       run-code-scanner: true
     secrets:
