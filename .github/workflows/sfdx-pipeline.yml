@@ -27,3 +27,16 @@ jobs:
       run-code-scanner: true
     secrets:
       AUTH_URL: ${{ secrets.QA_AUTH_URL }}  #QA AUTH URL
+      
+  # 2. QA Deploy Trigger
+  qa_deploy:
+    name: 🧪 QA Deploy
+    if: github.event_name == 'push' && github.base_ref == 'develop'
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    with:
+      target-env: 'QA'
+      deployment-mode: 'DELTA'
+      check-only: false
+      run-code-scanner: false
+    secrets:
+      AUTH_URL: ${{ secrets.QA_AUTH_URL }}  #QA AUTH URL
