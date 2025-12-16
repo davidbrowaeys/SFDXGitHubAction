@@ -68,7 +68,7 @@ jobs:
       deployment-mode: 'DELTA'
       
       # Use the boolean conversion
-      check-only: ${{ fromJson(needs.determine_targets.outputs.CHECK_ONLY== 'true' }}
+      check-only: ${{ needs.determine_targets.outputs.CHECK_ONLY== 'true' }}
       run-code-scanner: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'true' }}
       
     secrets:
