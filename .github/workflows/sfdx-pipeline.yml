@@ -93,10 +93,11 @@ jobs:
 
   # --- 2. Single Deployment Job (No Matrix) ---
   qa_validation_pr:
-    name: 🚀 Deploy to ${{ fromJson(needs.determine_targets.outputs.target_config).target_env }}
+    # CRITICAL FIX: Use default() to safely handle the job name when target_config is 'null'.
+    name: 🚀 Deploy to ${{ fromJson(needs.determine_targets.outputs.target_config).target_env || 'No Target Found' }}
     needs: determine_targets
     
-    # CRITICAL FIX: Check if the output string is NOT the literal string 'null'.
+    # Check if the output string is NOT the literal string 'null'.
     if: ${{ needs.determine_targets.outputs.target_config != 'null' }}
     
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
