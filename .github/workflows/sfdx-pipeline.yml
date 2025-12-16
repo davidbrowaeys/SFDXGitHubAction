@@ -73,11 +73,12 @@ jobs:
           # Final Output Processing
           # -----------------------------------------------------------------
           
-          # Check if a target was set
           if [ -z "$TARGET_CONFIG" ]; then
-            echo "::notice::No relevant deployment conditions met. Exiting job."
-            # Set a default null output and exit 0 (allow subsequent job to skip)
-            echo "target_config={}" >> $GITHUB_OUTPUT
+            echo "::notice::No relevant deployment conditions met. Setting output to null JSON."
+            
+            # CRITICAL FIX: Output the string 'null' instead of '{}' or an empty string. 
+            # 'null' is a reserved JSON type that can be checked easily.
+            echo "target_config=null" >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -85,25 +86,30 @@ jobs:
           COMPACT_CONFIG=$(echo "$TARGET_CONFIG" | jq -c '.')
           echo "Target Configuration (Compacted): $COMPACT_CONFIG"
           
-          # 2. Output the single-line string directly to GITHUB_OUTPUT.
-          echo "target_config=$COMPACT_CONFIG" >> $GITHUB_OUTPUT
+          # 2. Output the single-line string.
+          # We must wrap the variable in quotes to protect the curly braces in the output file command.
+          echo "target_config='$COMPACT_CONFIG'" >> $GITHUB_OUTPUT
         shell: bash
 
-  # --- 2. Main Job: Execute Deployments Dynamically (Matrix) ---
+  # --- 2. Single Deployment Job (No Matrix) ---
   qa_validation_pr:
-    name: 🚀 Deploy to ${{ matrix.target.target_env }} (${{ matrix.target.check_only == 'true' && 'Validation' || 'Deployment' }})
+    name: 🚀 Deploy to ${{ fromJson(needs.determine_targets.outputs.target_config).target_env }}
     needs: determine_targets
+    
+    # CRITICAL FIX: Check if the output string is NOT the literal string 'null'.
+    if: ${{ needs.determine_targets.outputs.target_config != 'null' }}
     
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     
     with:
-      # Access config values directly via the 'target' object
+      # Access config values directly via the needs output
       target-env: ${{ fromJson(needs.determine_targets.outputs.target_config).target_env }}
       deployment-mode: 'DELTA'
       
+      # Use the boolean conversion
       check-only: ${{ fromJson(needs.determine_targets.outputs.target_config).check_only == 'true' }}
       run-code-scanner: ${{ fromJson(needs.determine_targets.outputs.target_config).check_only == 'true' }}
       
     secrets:
-      # Access secret key name directly via the 'target' object
-      AUTH_URL: ${{ secrets[matrix.target.auth_secret] }}
+      # Use dynamic lookup in the secrets context
+      AUTH_URL: ${{ secrets[fromJson(needs.determine_targets.outputs.target_config).auth_secret] }}
