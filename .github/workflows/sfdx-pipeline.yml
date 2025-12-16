@@ -23,40 +23,7 @@ jobs:
       - name: 🔍 Determine Target Environment & Mode
         id: set_targets
         run: |
-          You are proposing a dictionary (or hash map) structure where the environment name is the key and the configuration is the value. This is a great alternative to the array structure!
-
-While GitHub's matrix strategy traditionally consumes a JSON array (e.g., [{"env": "QA"}, {"env": "QA1"}]), it can also consume a JSON object (a dictionary) where the keys are the matrix axes.
-
-The structure you suggested:
-
-JSON
-
-{
-    "QA": { "auth_secret": "QA_AUTH_URL", "check_only": "true" },
-    "QA1": { "auth_secret": "QA1_AUTH_URL", "check_only": "true" },
-    // ...
-}
-This structure requires a slight change in how the determine_targets script builds the JSON and how the downstream job consumes the matrix.
-
-✅ The Refined Approach: Using a Dictionary as the Matrix
-This approach uses your desired dictionary format, which is very clear and clean.
-
-1. New Job: Determine Deployment Targets (Dictionary Structure)
-The shell script is much simpler, as we just add properties to a single dictionary object ({}) instead of appending to an array ([]).
-
-YAML
-
-jobs:
-  # --- 1. Determine which environments need validation/deployment ---
-  determine_targets:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set_targets.outputs.targets }}
-      
-    steps:
-      - name: 🔍 Determine Target Environment & Mode
-        id: set_targets
-        run: |
+          
           # --- Define Variables from GitHub Context ---
           EVENT_NAME="${{ github.event_name }}"
           BASE_REF="${{ github.base_ref }}"
