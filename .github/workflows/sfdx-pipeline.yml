@@ -17,7 +17,10 @@ jobs:
   determine_targets:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set_targets.outputs.targets }}
+      # CRITICAL FIX: Explicitly map the step outputs to the job outputs
+      TARGET_ENV: ${{ steps.set_targets.outputs.TARGET_ENV }}
+      AUTH_SECRET: ${{ steps.set_targets.outputs.AUTH_SECRET }}
+      CHECK_ONLY: ${{ steps.set_targets.outputs.CHECK_ONLY }}
       
     steps:
       - name: 🔍 Determine Target Environment & Mode
@@ -27,50 +30,54 @@ jobs:
           BASE_REF="${{ github.base_ref }}"
           REF="${{ github.ref }}"
           
-          # Initialize $target_config as an empty string/null to signal no deployment
-          TARGET_CONFIG="" 
-          
           CHECK_ONLY_MODE="false"
           if [ "$EVENT_NAME" = "pull_request" ]; then
             CHECK_ONLY_MODE="true"
           fi
           
+          # --- SCENARIO A: Target is 'develop' ---
           if [ "$BASE_REF" = "develop" ] || [ "$REF" = "refs/heads/develop" ]; then
             echo "Target branch is 'develop'. Scheduling QA validation/deployment."
             
-            echo "TARGET_ENV='QA'" >> $GITHUB_OUTPUT
-            echo "AUTH_SECRET='QA_AUTH_URL'" >> $GITHUB_OUTPUT
-            echo "CHECK_ONLY='$CHECK_ONLY_MODE'" >> $GITHUB_OUTPUT
-        
+            # NOTE: We do not need the quotes around the value for simple strings.
+            echo "TARGET_ENV=QA" >> $GITHUB_OUTPUT
+            echo "AUTH_SECRET=QA_AUTH_URL" >> $GITHUB_OUTPUT
+            echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
+            
+          # --- SCENARIO B: Target is a 'project/team1/' branch (QA1) ---
+          # NOTE: I simplified your regex to just match 'refs/heads/project/team1/' or if BASE_REF starts with 'project/'
           elif [[ "$BASE_REF" =~ ^project/ ]] || [[ "$REF" =~ refs/heads/project/team1/ ]]; then
-            echo "Target branch is a 'project/**' branch. Scheduling QA1 validation/deployment."
+            echo "Target branch is a 'project/team1' branch. Scheduling QA1 validation/deployment."
 
-            echo "TARGET_ENV='QA1'" >> $GITHUB_OUTPUT
-            echo "AUTH_SECRET='QA1_AUTH_URL'" >> $GITHUB_OUTPUT
-            echo "CHECK_ONLY='$CHECK_ONLY_MODE'" >> $GITHUB_OUTPUT
+            echo "TARGET_ENV=QA1" >> $GITHUB_OUTPUT
+            echo "AUTH_SECRET=QA1_AUTH_URL" >> $GITHUB_OUTPUT
+            echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
             
           else
-            echo "::notice::Workflow triggered by event/branch that does not require deployment."
+            echo "::notice::Workflow triggered by event/branch that does not require deployment. No variables set."
           fi
 
         shell: bash
 
   # --- 2. Single Deployment Job (No Matrix) ---
   qa_validation_pr:
-    name: 🚀 Deploy to ${{ needs.determine_targets.outputs.TARGET_ENV }}
+    name: 🚀 Deploy to ${{ needs.determine_targets.outputs.TARGET_ENV || 'No Target' }}
     needs: determine_targets
+    
+    # Run only if TARGET_ENV was actually set (not an empty string)
+    if: ${{ needs.determine_targets.outputs.TARGET_ENV != '' }}
     
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     
     with:
-      # Access config values directly via the needs output
+      # Access config values directly via the job output
       target-env: ${{ needs.determine_targets.outputs.TARGET_ENV }}
       deployment-mode: 'DELTA'
       
       # Use the boolean conversion
-      check-only: ${{ needs.determine_targets.outputs.CHECK_ONLY== 'true' }}
+      check-only: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'true' }}
       run-code-scanner: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'true' }}
       
     secrets:
       # Use dynamic lookup in the secrets context
-      AUTH_URL: ${{ secrets[needs.determine_targets.outputs.AUTH_SECRET]}}
+      AUTH_URL: ${{ secrets[needs.determine_targets.outputs.AUTH_SECRET] }}
