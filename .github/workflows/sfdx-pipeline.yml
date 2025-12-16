@@ -1,5 +1,4 @@
-name: Salesforce Multi-Environment Pipeline
-
+name: Salesforce Project
 on:
   pull_request:
     branches:
@@ -11,32 +10,109 @@ on:
       - 'release/**'
 
 jobs:
-  # ====================================================
-  # PR - QA STAGE (Validation & Deployment)
-  # ====================================================
+  # --- 1. Determine which environments need validation/deployment ---
+  determine_targets:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.check_changes.outputs.targets }}
+      
+    steps:
+      - name: ⬇️ Checkout Repository (Shallow)
+        uses: actions/checkout@v4
+        with:
+          # Fetch previous commit to compare delta for PRs/Pushes
+          fetch-depth: 2 
 
-  # 1. QA Validation Trigger
+      - name: 🔍 Check for Changes & Set Dynamic Targets
+        id: check_changes
+        run: |
+          # --- Define Environment Variables ---
+          EVENT_NAME="${{ github.event_name }}"
+          BASE_REF="${{ github.base_ref }}" # For PRs: The target branch (e.g., develop)
+          REF="${{ github.ref }}"           # For Pushes: The branch pushed to (e.g., refs/heads/develop)
+          
+          targets="[]"
+          
+          # --- Logic for Check-Only ---
+          # Always true for Pull Requests, false for Pushes
+          CHECK_ONLY_MODE="false"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            CHECK_ONLY_MODE="true"
+          fi
+          
+          echo "Deployment Mode: Check-Only = $CHECK_ONLY_MODE"
+          
+          # --- SCENARIO A: PR to 'develop' (Validation to SIT) OR PUSH to 'develop' (Deployment to SIT) ---
+          # This scenario covers merging feature work to the shared integration environment.
+          if [ "$BASE_REF" = "develop" ] || [ "$REF" = "refs/heads/develop" ]; then
+            echo "Target branch is 'develop'. Scheduling SIT validation/deployment."
+            
+            # Since SIT handles merged code, we don't need to check specific team folders here.
+            # We assume any change should trigger SIT CI.
+            
+            targets=$(echo "$targets" | jq '. += [{
+              "target_env": "QA", 
+              "auth_secret": "QA_AUTH_URL",
+              "check_only": '$CHECK_ONLY_MODE'
+            }]')
+            
+          # --- SCENARIO B: PR to Team Branches (Validation to QA1/QA2) ---
+          elif [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "Target branch is not 'develop'. Checking specific team folders for QA validation."
+            
+            # Check Team 1 Changes (project/team1) and target QA1
+            if git diff --name-only HEAD^ HEAD | grep -q 'project/team1/'; then
+              echo "Team 1 changes detected. Targeting QA1."
+              targets=$(echo "$targets" | jq '. += [{
+                "target_env": "QA1", 
+                "auth_secret": "QA1_AUTH_URL",
+                "check_only": "true"
+              }]')
+            fi
+            
+            # Check Team 2 Changes (project/team2) and target QA2
+            if git diff --name-only HEAD^ HEAD | grep -q 'project/team2/'; then
+              echo "Team 2 changes detected. Targeting QA2."
+              targets=$(echo "$targets" | jq '. += [{
+                "target_env": "QA2", 
+                "auth_secret": "QA2_AUTH_URL",
+                "check_only": "true"
+              }]')
+            fi
+            
+          else
+            echo "::notice::Workflow triggered by event/branch that does not require deployment. Exiting."
+            exit 1 # Fails the job if no relevant condition is met
+          fi
+
+          # Output the final JSON array to the workflow output
+          echo "Targets JSON: $targets"
+          echo "targets=$targets" >> $GITHUB_OUTPUT
+          
+          # Check if the targets array is empty
+          if [ "$targets" = "[]" ]; then
+            echo "::notice::No changes detected or deployment conditions met."
+            exit 1
+          fi
+        shell: bash
   qa_validation_pr:
     name: 🧪 QA Validation (PR)
-    if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+    needs: determine_targets
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJson(needs.determine_targets.outputs.matrix) }}
+        
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     with:
-      target-env: 'QA'
+      target-env: ${{ matrix.target.target_env }}
       deployment-mode: 'DELTA'
-      check-only: true
-      run-code-scanner: true
-    secrets:
-      AUTH_URL: ${{ secrets.QA_AUTH_URL }}  #QA AUTH URL
+      # **CRITICAL CHANGE:** Use the dynamic 'check_only' value from the matrix
+      # Note: We must convert the string 'true'/'false' back to a boolean value expected by the input.
+      check-only: ${{ matrix.target.check_only == 'true' }}
       
-  # 2. QA Deploy Trigger
-  qa_deploy:
-    name: 🧪 QA Deploy
-    if: github.event_name == 'push' && github.base_ref == 'develop'
-    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-    with:
-      target-env: 'QA'
-      deployment-mode: 'DELTA'
-      check-only: false
-      run-code-scanner: false
+      # You can make the scanner dynamic here too, running it only for validation runs
+      run-code-scanner: ${{ matrix.target.check_only == 'true' }}
     secrets:
-      AUTH_URL: ${{ secrets.QA_AUTH_URL }}  #QA AUTH URL
+      AUTH_URL: ${{ secrets[matrix.target.auth_secret] }}
