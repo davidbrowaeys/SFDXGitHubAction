@@ -1,7 +1,7 @@
 /**
 * @description Sample Controller.
 */
-public with sharing class MyController {11112
+public with sharing class MyController {
     @AuraEnabled(cacheable=true)
     public static List<SObject> getRecords(String objectApiName, String[] recordIds, String[] fields){
         if (objectApiName == null){
