@@ -1,4 +1,26 @@
-- name: 🔍 Determine Target Environment & Mode
+name: Salesforce Project CI/CD
+
+on:
+  pull_request:
+    # Triggers on PRs targeting develop or any release branch
+    branches:
+      - develop
+      - 'release/**'
+  push:
+    # Triggers on Pushes directly to develop or any release branch
+    branches:
+      - develop
+      - 'release/**'
+
+jobs:
+  # --- 1. Determine which environments need validation/deployment ---
+  determine_targets:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set_targets.outputs.targets }}
+      
+    steps:
+      - name: 🔍 Determine Target Environment & Mode
         id: set_targets
         run: |
           # --- Define Variables from GitHub Context ---
@@ -16,13 +38,13 @@
           
           echo "Deployment Mode: Check-Only = $CHECK_ONLY_MODE"
           
-          # --- SCENARIO A: Target is 'develop' (SIT environment) ---
+          # --- SCENARIO A: Target is 'develop' (QA environment) ---
           if [ "$BASE_REF" = "develop" ] || [ "$REF" = "refs/heads/develop" ]; then
-            echo "Target branch is 'develop'. Scheduling SIT validation/deployment."
+            echo "Target branch is 'develop'. Scheduling QA validation/deployment."
             
             targets=$(echo "$targets" | jq '. += [{
-              "target_env": "SIT",  
-              "auth_secret": "SIT_AUTH_URL",
+              "target_env": "QA",  
+              "auth_secret": "QA_AUTH_URL",
               "check_only": '$CHECK_ONLY_MODE'
             }]')
             
@@ -30,8 +52,6 @@
           elif [[ "$BASE_REF" =~ ^release/ ]] || [[ "$REF" =~ refs/heads/release/ ]]; then
             echo "Target branch is a 'release/**' branch. Targeting QA environments."
 
-            # Proxy Rule: PR/Push to Release branch triggers both QA1 and QA2
-            
             # QA1 Target
             targets=$(echo "$targets" | jq '. += [{
               "target_env": "QA1",  
@@ -51,29 +71,53 @@
           fi
 
           # -----------------------------------------------------------------
-          # CRITICAL FIX FOR MULTILINE JSON OUTPUT
+          # CRITICAL FIX: Ensure the JSON output is a single, compacted line
           # -----------------------------------------------------------------
           
           # Check if the targets array is empty
           if [ "$targets" = "[]" ]; then
             echo "::notice::No relevant deployment conditions met. Terminating workflow early."
-            # Setting an empty string output, then exiting 1 to prevent downstream jobs.
-            echo "targets='[]'" >> $GITHUB_OUTPUT
+            # Set targets to an empty array and exit 1
+            echo "targets=[]" >> $GITHUB_OUTPUT
             exit 1
           fi
 
-          # 1. Define EOL delimiter
-          DELIMITER=$(uuidgen)
+          # 1. Use 'jq -c' to output the JSON compacted to a single line.
+          COMPACT_TARGETS=$(echo "$targets" | jq -c '.')
           
-          echo "Targets JSON: $targets"
+          echo "Targets JSON (Compacted): $COMPACT_TARGETS"
           
-          # 2. Start multi-line output with the delimiter
-          echo "targets<<$DELIMITER" >> $GITHUB_OUTPUT
-          
-          # 3. Output the JSON array
-          echo "$targets" >> $GITHUB_OUTPUT
-          
-          # 4. End multi-line output with the delimiter
-          echo "$DELIMITER" >> $GITHUB_OUTPUT
-          
+          # 2. Output the single-line string directly to GITHUB_OUTPUT.
+          # This avoids all newline/delimiter issues.
+          echo "targets=$COMPACT_TARGETS" >> $GITHUB_OUTPUT
         shell: bash
+
+  # --- 2. Main Job: Execute Deployments Dynamically (Matrix) ---
+  qa_validation_pr:
+    name: 🚀 Deploy to ${{ matrix.target.target_env }} (${{ matrix.target.check_only == 'true' && 'Validation' || 'Deployment' }})
+    needs: determine_targets
+    
+    strategy:
+      fail-fast: false
+      # CRITICAL: This pulls the list of targets (SIT, QA1, QA2) from the previous job.
+      matrix:
+        target: ${{ fromJson(needs.determine_targets.outputs.matrix) }}
+    
+    # You must have jq installed in this image or add a setup step if you used a base image.
+    # Since this is a reusable workflow, jq is likely not needed here.
+    
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    
+    with:
+      target-env: ${{ matrix.target.target_env }}
+      deployment-mode: 'DELTA'
+      
+      # Use the dynamic 'check_only' value from the matrix
+      check-only: ${{ matrix.target.check_only == 'true' }}
+      
+      # Run scanner only for validation runs
+      run-code-scanner: ${{ matrix.target.check_only == 'true' }}
+      
+    secrets:
+      # Dynamically fetch the correct secret (SIT_AUTH_URL, QA1_AUTH_URL, etc.)
+      AUTH_URL: ${{ secrets[matrix.target.auth_secret] }}
