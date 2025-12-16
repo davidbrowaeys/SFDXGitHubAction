@@ -45,7 +45,7 @@ jobs:
             targets=$(echo "$targets" | jq '. += [{
               "target_env": "QA",  
               "auth_secret": "QA_AUTH_URL",
-              "check_only": '$CHECK_ONLY_MODE'
+              "check_only": "$CHECK_ONLY_MODE"
             }]')
             
           # --- SCENARIO B: Target is a 'release/**' branch (QA environment) ---
@@ -69,10 +69,6 @@ jobs:
           else
             echo "::notice::Workflow triggered by event/branch that does not require deployment. Exiting."
           fi
-
-          # -----------------------------------------------------------------
-          # CRITICAL FIX: Ensure the JSON output is a single, compacted line
-          # -----------------------------------------------------------------
           
           # Check if the targets array is empty
           if [ "$targets" = "[]" ]; then
