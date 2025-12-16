@@ -27,8 +27,8 @@ jobs:
           BASE_REF="${{ github.base_ref }}"
           REF="${{ github.ref }}"
           
-          # Initialize $targets as a JSON array
-          targets="[]" 
+          # Initialize $target_config as an empty string/null to signal no deployment
+          TARGET_CONFIG="" 
           
           CHECK_ONLY_MODE="false"
           if [ "$EVENT_NAME" = "pull_request" ]; then
@@ -37,48 +37,56 @@ jobs:
           
           JQ_OPTIONS='-c --arg checkmode "$CHECK_ONLY_MODE"'
           
-          # --- SCENARIO A: Target is 'develop' (QA environment) ---
+          # -----------------------------------------------------------------
+          # PRIORITY 1: Target is 'develop' (Shared QA/SIT)
+          # This should run first as it represents the highest integration level.
+          # -----------------------------------------------------------------
           if [ "$BASE_REF" = "develop" ] || [ "$REF" = "refs/heads/develop" ]; then
             echo "Target branch is 'develop'. Scheduling QA validation/deployment."
             
-            # Use jq to append an object to the array: . += [{ ... }]
-            targets=$(echo "$targets" | jq $JQ_OPTIONS '. += [{ 
+            # Set $TARGET_CONFIG to a single JSON object (no array brackets)
+            TARGET_CONFIG=$(echo "{}" | jq $JQ_OPTIONS '. += { 
               "target_env": "QA",  
               "auth_secret": "QA_AUTH_URL",
               "check_only": $checkmode
-            }]')
+            }')
             
-          # --- SCENARIO B: Target is a 'release/**' branch (QA1/QA2) ---
+          # -----------------------------------------------------------------
+          # PRIORITY 2: Target is a 'release/**' branch (QA1 or QA2 - Single Choice)
+          # We must decide which QA to pick, or default to one.
+          # For simplicity, we will deploy to QA1 as the primary release QA.
+          # -----------------------------------------------------------------
           elif [[ "$BASE_REF" =~ ^release/ ]] || [[ "$REF" =~ refs/heads/release/ ]]; then
-            echo "Target branch is a 'release/**' branch. Targeting QA environments."
+            echo "Target branch is a 'release/**' branch. Scheduling QA1 validation/deployment."
 
-            # QA1 Target
-            targets=$(echo "$targets" | jq $JQ_OPTIONS '. += [{
+            TARGET_CONFIG=$(echo "{}" | jq $JQ_OPTIONS '. += {
               "target_env": "QA1",  
               "auth_secret": "QA1_AUTH_URL",
               "check_only": $checkmode
-            }]')
-            
-            # QA2 Target
-            targets=$(echo "$targets" | jq $JQ_OPTIONS '. += [{
-              "target_env": "QA2",  
-              "auth_secret": "QA2_AUTH_URL",
-              "check_only": $checkmode
-            }]')
+            }')
 
           else
-            echo "::notice::Workflow triggered by event/branch that does not require deployment. Exiting."
+            echo "::notice::Workflow triggered by event/branch that does not require deployment."
           fi
 
-          if [ "$targets" = "[]" ]; then
-            echo "::notice::No relevant deployment conditions met. Terminating workflow early."
-            echo "targets=[]" >> $GITHUB_OUTPUT
-            exit 1
+          # -----------------------------------------------------------------
+          # Final Output Processing
+          # -----------------------------------------------------------------
+          
+          # Check if a target was set
+          if [ -z "$TARGET_CONFIG" ]; then
+            echo "::notice::No relevant deployment conditions met. Exiting job."
+            # Set a default null output and exit 0 (allow subsequent job to skip)
+            echo "target_config={}" >> $GITHUB_OUTPUT
+            exit 0
           fi
 
-          COMPACT_TARGETS=$(echo "$targets" | jq -c '.')
-          echo "Targets JSON (Compacted): $COMPACT_TARGETS"
-          echo "targets=$COMPACT_TARGETS" >> $GITHUB_OUTPUT
+          # 1. Use 'jq -c' to output the JSON compacted to a single line.
+          COMPACT_CONFIG=$(echo "$TARGET_CONFIG" | jq -c '.')
+          echo "Target Configuration (Compacted): $COMPACT_CONFIG"
+          
+          # 2. Output the single-line string directly to GITHUB_OUTPUT.
+          echo "target_config=$COMPACT_CONFIG" >> $GITHUB_OUTPUT
         shell: bash
 
   # --- 2. Main Job: Execute Deployments Dynamically (Matrix) ---
