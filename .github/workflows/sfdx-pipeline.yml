@@ -77,6 +77,8 @@ jobs:
       # Use the boolean conversion
       check-only: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'true' }}
       run-code-scanner: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'true' }}
+      run-data-import: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'false' }}
+      
       
     secrets:
       # Use dynamic lookup in the secrets context
