@@ -23,16 +23,13 @@ jobs:
       - name: 🔍 Determine Target Environment & Mode
         id: set_targets
         run: |
-          
-          # --- Define Variables from GitHub Context ---
           EVENT_NAME="${{ github.event_name }}"
           BASE_REF="${{ github.base_ref }}"
           REF="${{ github.ref }}"
           
-          # Initialize $targets as a JSON object (dictionary)
-          targets="{}"
+          # Initialize $targets as a JSON array
+          targets="[]" 
           
-          # --- Determine Check-Only Mode ---
           CHECK_ONLY_MODE="false"
           if [ "$EVENT_NAME" = "pull_request" ]; then
             CHECK_ONLY_MODE="true"
@@ -40,52 +37,47 @@ jobs:
           
           JQ_OPTIONS='-c --arg checkmode "$CHECK_ONLY_MODE"'
           
-          echo "Deployment Mode: Check-Only = $CHECK_ONLY_MODE"
-          
-          # --- SCENARIO A: Target is 'develop' (QA/SIT environment) ---
+          # --- SCENARIO A: Target is 'develop' (QA environment) ---
           if [ "$BASE_REF" = "develop" ] || [ "$REF" = "refs/heads/develop" ]; then
             echo "Target branch is 'develop'. Scheduling QA validation/deployment."
             
-            # Use jq to add a new key-value pair to the dictionary: .QA = { ... }
-            targets=$(echo "$targets" | jq $JQ_OPTIONS '.QA = { 
-              "auth_secret": "QA_AUTH_URL", 
-              "check_only": $checkmode 
-            }')
+            # Use jq to append an object to the array: . += [{ ... }]
+            targets=$(echo "$targets" | jq $JQ_OPTIONS '. += [{ 
+              "target_env": "QA",  
+              "auth_secret": "QA_AUTH_URL",
+              "check_only": $checkmode
+            }]')
             
           # --- SCENARIO B: Target is a 'release/**' branch (QA1/QA2) ---
           elif [[ "$BASE_REF" =~ ^release/ ]] || [[ "$REF" =~ refs/heads/release/ ]]; then
             echo "Target branch is a 'release/**' branch. Targeting QA environments."
 
             # QA1 Target
-            targets=$(echo "$targets" | jq $JQ_OPTIONS '.QA1 = { 
-              "auth_secret": "QA1_AUTH_URL", 
-              "check_only": $checkmode 
-            }')
+            targets=$(echo "$targets" | jq $JQ_OPTIONS '. += [{
+              "target_env": "QA1",  
+              "auth_secret": "QA1_AUTH_URL",
+              "check_only": $checkmode
+            }]')
             
             # QA2 Target
-            targets=$(echo "$targets" | jq $JQ_OPTIONS '.QA2 = { 
-              "auth_secret": "QA2_AUTH_URL", 
-              "check_only": $checkmode 
-            }')
+            targets=$(echo "$targets" | jq $JQ_OPTIONS '. += [{
+              "target_env": "QA2",  
+              "auth_secret": "QA2_AUTH_URL",
+              "check_only": $checkmode
+            }]')
 
           else
             echo "::notice::Workflow triggered by event/branch that does not require deployment. Exiting."
           fi
-          
-          # Check if the targets object is empty
-          if [ "$targets" = "{}" ]; then
+
+          if [ "$targets" = "[]" ]; then
             echo "::notice::No relevant deployment conditions met. Terminating workflow early."
-            # The strategy job will fail if it receives an empty object (or exit 1 here)
-            echo "targets={}" >> $GITHUB_OUTPUT
+            echo "targets=[]" >> $GITHUB_OUTPUT
             exit 1
           fi
 
-          # 1. Use 'jq -c' to output the JSON compacted to a single line.
           COMPACT_TARGETS=$(echo "$targets" | jq -c '.')
-          
           echo "Targets JSON (Compacted): $COMPACT_TARGETS"
-          
-          # 2. Output the single-line string directly to GITHUB_OUTPUT.
           echo "targets=$COMPACT_TARGETS" >> $GITHUB_OUTPUT
         shell: bash
 
@@ -96,25 +88,19 @@ jobs:
     
     strategy:
       fail-fast: false
-      # CRITICAL: This pulls the list of targets (SIT, QA1, QA2) from the previous job.
       matrix:
-        target: ${{ fromJson(needs.determine_targets.outputs.matrix) }}
-    
-    # You must have jq installed in this image or add a setup step if you used a base image.
-    # Since this is a reusable workflow, jq is likely not needed here.
+        target: ${{ fromJson(needs.determine_targets.outputs.matrix) }} 
     
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     
     with:
+      # Access config values directly via the 'target' object
       target-env: ${{ matrix.target.target_env }}
       deployment-mode: 'DELTA'
       
-      # Use the dynamic 'check_only' value from the matrix
       check-only: ${{ matrix.target.check_only == 'true' }}
-      
-      # Run scanner only for validation runs
       run-code-scanner: ${{ matrix.target.check_only == 'true' }}
       
     secrets:
-      # Dynamically fetch the correct secret (SIT_AUTH_URL, QA1_AUTH_URL, etc.)
+      # Access secret key name directly via the 'target' object
       AUTH_URL: ${{ secrets[matrix.target.auth_secret] }}
