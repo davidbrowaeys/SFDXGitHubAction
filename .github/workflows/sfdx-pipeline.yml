@@ -23,12 +23,47 @@ jobs:
       - name: 🔍 Determine Target Environment & Mode
         id: set_targets
         run: |
+          You are proposing a dictionary (or hash map) structure where the environment name is the key and the configuration is the value. This is a great alternative to the array structure!
+
+While GitHub's matrix strategy traditionally consumes a JSON array (e.g., [{"env": "QA"}, {"env": "QA1"}]), it can also consume a JSON object (a dictionary) where the keys are the matrix axes.
+
+The structure you suggested:
+
+JSON
+
+{
+    "QA": { "auth_secret": "QA_AUTH_URL", "check_only": "true" },
+    "QA1": { "auth_secret": "QA1_AUTH_URL", "check_only": "true" },
+    // ...
+}
+This structure requires a slight change in how the determine_targets script builds the JSON and how the downstream job consumes the matrix.
+
+✅ The Refined Approach: Using a Dictionary as the Matrix
+This approach uses your desired dictionary format, which is very clear and clean.
+
+1. New Job: Determine Deployment Targets (Dictionary Structure)
+The shell script is much simpler, as we just add properties to a single dictionary object ({}) instead of appending to an array ([]).
+
+YAML
+
+jobs:
+  # --- 1. Determine which environments need validation/deployment ---
+  determine_targets:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set_targets.outputs.targets }}
+      
+    steps:
+      - name: 🔍 Determine Target Environment & Mode
+        id: set_targets
+        run: |
           # --- Define Variables from GitHub Context ---
           EVENT_NAME="${{ github.event_name }}"
           BASE_REF="${{ github.base_ref }}"
           REF="${{ github.ref }}"
           
-          targets="[]"
+          # Initialize $targets as a JSON object (dictionary)
+          targets="{}"
           
           # --- Determine Check-Only Mode ---
           CHECK_ONLY_MODE="false"
@@ -36,45 +71,45 @@ jobs:
             CHECK_ONLY_MODE="true"
           fi
           
+          JQ_OPTIONS='-c --arg checkmode "$CHECK_ONLY_MODE"'
+          
           echo "Deployment Mode: Check-Only = $CHECK_ONLY_MODE"
           
-          # --- SCENARIO A: Target is 'develop' (QA environment) ---
+          # --- SCENARIO A: Target is 'develop' (QA/SIT environment) ---
           if [ "$BASE_REF" = "develop" ] || [ "$REF" = "refs/heads/develop" ]; then
             echo "Target branch is 'develop'. Scheduling QA validation/deployment."
             
-            targets=$(echo "$targets" | jq '. += [{
-              "target_env": "QA",  
-              "auth_secret": "QA_AUTH_URL",
-              "check_only": "$CHECK_ONLY_MODE"
-            }]')
+            # Use jq to add a new key-value pair to the dictionary: .QA = { ... }
+            targets=$(echo "$targets" | jq $JQ_OPTIONS '.QA = { 
+              "auth_secret": "QA_AUTH_URL", 
+              "check_only": $checkmode 
+            }')
             
-          # --- SCENARIO B: Target is a 'release/**' branch (QA environment) ---
+          # --- SCENARIO B: Target is a 'release/**' branch (QA1/QA2) ---
           elif [[ "$BASE_REF" =~ ^release/ ]] || [[ "$REF" =~ refs/heads/release/ ]]; then
             echo "Target branch is a 'release/**' branch. Targeting QA environments."
 
             # QA1 Target
-            targets=$(echo "$targets" | jq '. += [{
-              "target_env": "QA1",  
-              "auth_secret": "QA1_AUTH_URL",
-              "check_only": '$CHECK_ONLY_MODE'
-            }]')
+            targets=$(echo "$targets" | jq $JQ_OPTIONS '.QA1 = { 
+              "auth_secret": "QA1_AUTH_URL", 
+              "check_only": $checkmode 
+            }')
             
             # QA2 Target
-            targets=$(echo "$targets" | jq '. += [{
-              "target_env": "QA2",  
-              "auth_secret": "QA2_AUTH_URL",
-              "check_only": '$CHECK_ONLY_MODE'
-            }]')
+            targets=$(echo "$targets" | jq $JQ_OPTIONS '.QA2 = { 
+              "auth_secret": "QA2_AUTH_URL", 
+              "check_only": $checkmode 
+            }')
 
           else
             echo "::notice::Workflow triggered by event/branch that does not require deployment. Exiting."
           fi
           
-          # Check if the targets array is empty
-          if [ "$targets" = "[]" ]; then
+          # Check if the targets object is empty
+          if [ "$targets" = "{}" ]; then
             echo "::notice::No relevant deployment conditions met. Terminating workflow early."
-            # Set targets to an empty array and exit 1
-            echo "targets=[]" >> $GITHUB_OUTPUT
+            # The strategy job will fail if it receives an empty object (or exit 1 here)
+            echo "targets={}" >> $GITHUB_OUTPUT
             exit 1
           fi
 
@@ -84,7 +119,6 @@ jobs:
           echo "Targets JSON (Compacted): $COMPACT_TARGETS"
           
           # 2. Output the single-line string directly to GITHUB_OUTPUT.
-          # This avoids all newline/delimiter issues.
           echo "targets=$COMPACT_TARGETS" >> $GITHUB_OUTPUT
         shell: bash
 
