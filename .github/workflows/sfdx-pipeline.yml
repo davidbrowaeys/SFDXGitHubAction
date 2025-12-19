@@ -34,27 +34,29 @@ jobs:
           CHECK_ONLY_MODE="false"
           if [ "$EVENT_NAME" = "pull_request" ]; then
             CHECK_ONLY_MODE="true"
-            if [  "$BASE_REF" = "develop" ]; then 
-              echo "Target branch is 'develop'. Scheduling QA validation/deployment."
-              # NOTE: We do not need the quotes around the value for simple strings.
+            
+            if [ "$BASE_REF" = "develop" ]; then 
+              echo "Target branch is 'develop'. Scheduling QA validation."
               echo "TARGET_ENV=QA" >> $GITHUB_OUTPUT
               echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
+              
             elif [[ "$BASE_REF" =~ ^release/ ]]; then
-              echo "Target branch is a 'release/*' branch. Scheduling SIT validation/deployment."
-  
+              echo "Target branch is a 'release/*' branch. Scheduling SIT validation."
               echo "TARGET_ENV=SIT" >> $GITHUB_OUTPUT
               echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
             fi
-          elif
+          
+          else
+            # This block handles 'push' events (where EVENT_NAME is not pull_request)
             CHECK_ONLY_MODE="false"
-            if [ "$REF" =~ ^refs/heads/release/ ]; then
-              echo "Target branch is a 'release/*' branch. Scheduling SIT validation/deployment."
-
+            
+            if [[ "$REF" =~ ^refs/heads/release/ ]]; then
+              echo "Push to 'release/*' branch. Scheduling SIT deployment."
               echo "TARGET_ENV=SIT" >> $GITHUB_OUTPUT
               echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
+              
             elif [ "$REF" = "refs/heads/develop" ]; then
-              echo "Target branch is 'develop' branch. Scheduling QA validation/deployment."
-
+              echo "Push to 'develop' branch. Scheduling QA deployment."
               echo "TARGET_ENV=QA" >> $GITHUB_OUTPUT
               echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
             fi 
