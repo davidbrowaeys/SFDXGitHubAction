@@ -19,7 +19,6 @@ jobs:
     outputs:
       # CRITICAL FIX: Explicitly map the step outputs to the job outputs
       TARGET_ENV: ${{ steps.set_targets.outputs.TARGET_ENV }}
-      AUTH_SECRET: ${{ steps.set_targets.outputs.AUTH_SECRET }}
       CHECK_ONLY: ${{ steps.set_targets.outputs.CHECK_ONLY }}
       
     steps:
@@ -41,7 +40,6 @@ jobs:
             
             # NOTE: We do not need the quotes around the value for simple strings.
             echo "TARGET_ENV=QA" >> $GITHUB_OUTPUT
-            echo "AUTH_SECRET=QA_AUTH_URL" >> $GITHUB_OUTPUT
             echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
             
           # --- SCENARIO B: Target is a 'project/team1/' branch (QA1) ---
@@ -50,7 +48,6 @@ jobs:
             echo "Target branch is a 'project/team1' branch. Scheduling QA1 validation/deployment."
 
             echo "TARGET_ENV=QA1" >> $GITHUB_OUTPUT
-            echo "AUTH_SECRET=QA1_AUTH_URL" >> $GITHUB_OUTPUT
             echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
             
           else
@@ -81,5 +78,3 @@ jobs:
       
       
     secrets: inherit
-    #   # Use dynamic lookup in the secrets context
-    #   AUTH_URL: ${{ secrets[needs.determine_targets.outputs.AUTH_SECRET] }}
