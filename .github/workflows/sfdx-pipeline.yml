@@ -73,7 +73,6 @@ jobs:
       # Access config values directly via the job output
       target-env: ${{ needs.determine_targets.outputs.TARGET_ENV }}
       deployment-mode: 'DELTA'
-      environment: ${{ needs.determine_targets.outputs.TARGET_ENV }}
       
       # Use the boolean conversion
       check-only: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'true' }}
