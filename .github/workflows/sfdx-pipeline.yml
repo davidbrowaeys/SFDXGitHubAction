@@ -28,7 +28,9 @@ jobs:
           EVENT_NAME="${{ github.event_name }}"
           BASE_REF="${{ github.base_ref }}"
           REF="${{ github.ref }}"
-          
+          echo "EVENT_NAME = $EVENT_NAME"
+          echo "BASE_REF = $BASE_REF"
+          echo "REF = $REF"
           CHECK_ONLY_MODE="false"
           if [ "$EVENT_NAME" = "pull_request" ]; then
             CHECK_ONLY_MODE="true"
