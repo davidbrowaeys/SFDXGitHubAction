@@ -34,34 +34,30 @@ jobs:
           CHECK_ONLY_MODE="false"
           if [ "$EVENT_NAME" = "pull_request" ]; then
             CHECK_ONLY_MODE="true"
-          fi
-          
-          # --- SCENARIO A: Target is 'develop' ---
-          if [ "$BASE_REF" = "develop" ] || [ "$REF" = "refs/heads/develop" ]; then
-            echo "Target branch is 'develop'. Scheduling QA validation/deployment."
-            
-            # NOTE: We do not need the quotes around the value for simple strings.
-            echo "TARGET_ENV=QA" >> $GITHUB_OUTPUT
-            echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
-            
-          # --- SCENARIO B: Target is a 'project/team1/' branch (QA1) ---
-          # NOTE: I simplified your regex to just match 'refs/heads/project/team1/' or if BASE_REF starts with 'project/'
-          elif [[ "$BASE_REF" =~ ^project/ ]] || [[ "$REF" =~ refs/heads/project/team1/ ]]; then
-            echo "Target branch is a 'project/team1' branch. Scheduling QA1 validation/deployment."
+            if [  "$BASE_REF" = "develop" ]; then 
+              echo "Target branch is 'develop'. Scheduling QA validation/deployment."
+              # NOTE: We do not need the quotes around the value for simple strings.
+              echo "TARGET_ENV=QA" >> $GITHUB_OUTPUT
+              echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
+            elif [[ "$BASE_REF" =~ ^release/ ]]; then
+              echo "Target branch is a 'release/*' branch. Scheduling SIT validation/deployment."
+  
+              echo "TARGET_ENV=SIT" >> $GITHUB_OUTPUT
+              echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
+            fi
+          elfi
+            CHECK_ONLY_MODE="false"
+            if [ "$REF" =~ ^refs/heads/release/ ]; then
+              echo "Target branch is a 'release/*' branch. Scheduling SIT validation/deployment."
 
-            echo "TARGET_ENV=QA1" >> $GITHUB_OUTPUT
-            echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
-            
-          # --- SCENARIO C: Target is a 'release---
-          # NOTE: I simplified your regex to just match 'refs/heads/project/team1/' or if BASE_REF starts with 'project/'
-          elif [[ "$BASE_REF" =~ ^release/ ]]; then
-            echo "Target branch is a 'release/*' branch. Scheduling SIT validation/deployment."
+              echo "TARGET_ENV=SIT" >> $GITHUB_OUTPUT
+              echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
+            elif [ "$REF" = "refs/heads/develop" ]; then
+              echo "Target branch is 'develop' branch. Scheduling QA validation/deployment."
 
-            echo "TARGET_ENV=SIT" >> $GITHUB_OUTPUT
-            echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
-            
-          else
-            echo "::notice::Workflow triggered by event/branch that does not require deployment. No variables set."
+              echo "TARGET_ENV=QA" >> $GITHUB_OUTPUT
+              echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
+            fi 
           fi
 
         shell: bash
@@ -111,7 +107,7 @@ jobs:
    
   release_deploy_uat:
     name: 🚀 Deploy to UAT
-    needs: continuous_integration
+    needs: release_validate_uat
     
     # Run only if TARGET_ENV was actually set (not an empty string)
     if: ${{ needs.determine_targets.outputs.TARGET_ENV != '' && github.event_name == 'push' && startsWith(github.ref_name, 'release/') }}
