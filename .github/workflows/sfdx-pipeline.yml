@@ -92,7 +92,7 @@ jobs:
     needs: continuous_integration
     
     # Run only if TARGET_ENV was actually set (not an empty string)
-     if: ${{ needs.determine_targets.outputs.TARGET_ENV != '' && github.event_name == 'push' && startsWith(github.ref_name, 'release/') }}
+    if: ${{ needs.determine_targets.outputs.TARGET_ENV != '' && github.event_name == 'push' && startsWith(github.ref_name, 'release/') }}
     
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
     
