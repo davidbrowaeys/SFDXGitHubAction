@@ -1,4 +1,4 @@
-roname: Salesforce Project CI/CD
+name: Salesforce Project CI/CD
 
 on:
   pull_request:
