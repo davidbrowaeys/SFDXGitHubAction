@@ -1,4 +1,4 @@
-name: Salesforce Project CI/CD
+roname: Salesforce Project CI/CD
 
 on:
   pull_request:
@@ -73,6 +73,7 @@ jobs:
       # Access config values directly via the job output
       target-env: ${{ needs.determine_targets.outputs.TARGET_ENV }}
       deployment-mode: 'DELTA'
+      environment: ${{ needs.determine_targets.outputs.TARGET_ENV }}
       
       # Use the boolean conversion
       check-only: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'true' }}
@@ -80,6 +81,6 @@ jobs:
       run-data-import: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'false' }}
       
       
-    # secrets:
+    secrets: inherit
     #   # Use dynamic lookup in the secrets context
     #   AUTH_URL: ${{ secrets[needs.determine_targets.outputs.AUTH_SECRET] }}
