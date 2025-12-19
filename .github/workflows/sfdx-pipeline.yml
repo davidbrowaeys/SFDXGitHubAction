@@ -50,6 +50,14 @@ jobs:
             echo "TARGET_ENV=QA1" >> $GITHUB_OUTPUT
             echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
             
+          # --- SCENARIO C: Target is a 'release---
+          # NOTE: I simplified your regex to just match 'refs/heads/project/team1/' or if BASE_REF starts with 'project/'
+          elif [[ "$BASE_REF" =~ ^release/ ]]; then
+            echo "Target branch is a 'release/*' branch. Scheduling SIT validation/deployment."
+
+            echo "TARGET_ENV=SIT" >> $GITHUB_OUTPUT
+            echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
+            
           else
             echo "::notice::Workflow triggered by event/branch that does not require deployment. No variables set."
           fi
@@ -57,7 +65,7 @@ jobs:
         shell: bash
 
   # --- 2. Single Deployment Job (No Matrix) ---
-  qa_validation_pr:
+  continuous_integration:
     name: 🚀 Deploy to ${{ needs.determine_targets.outputs.TARGET_ENV || 'No Target' }}
     needs: determine_targets
     
@@ -74,7 +82,46 @@ jobs:
       # Use the boolean conversion
       check-only: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'true' }}
       run-code-scanner: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'true' }}
-      run-data-import: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'false' }}
+      run-data-import: false
       
+    secrets: inherit
+  ############   RELEASE STAGE ##########################################################
+  # --- 3. Validate UAT
+  release_validate_uat:
+    name: 🚀 Validate to UAT
+    needs: continuous_integration
+    
+    # Run only if TARGET_ENV was actually set (not an empty string)
+    if: ${{ needs.determine_targets.outputs.TARGET_ENV != '' && github.event_name == 'push' }}
+    
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    
+    with:
+      # Access config values directly via the job output
+      target-env: UAT
+      deployment-mode: 'DELTA'
+      check-only: true
+      run-code-scanner: false
+      run-data-import: false
+      
+    secrets: inherit
+   # --- 3. Deploy UAT
+   
+  release_deploy_uat:
+    name: 🚀 Deploy to UAT
+    needs: continuous_integration
+    
+    # Run only if TARGET_ENV was actually set (not an empty string)
+    if: ${{ needs.determine_targets.outputs.TARGET_ENV != '' && github.event_name == 'push' }}
+    
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    
+    with:
+      # Access config values directly via the job output
+      target-env: UAT
+      deployment-mode: 'DELTA'
+      check-only: false
+      run-code-scanner: false
+      run-data-import: false
       
     secrets: inherit
