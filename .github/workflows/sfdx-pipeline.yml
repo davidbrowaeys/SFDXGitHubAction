@@ -80,6 +80,6 @@ jobs:
       run-data-import: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'false' }}
       
       
-    secrets:
-      # Use dynamic lookup in the secrets context
-      AUTH_URL: ${{ secrets[needs.determine_targets.outputs.AUTH_SECRET] }}
+    # secrets:
+    #   # Use dynamic lookup in the secrets context
+    #   AUTH_URL: ${{ secrets[needs.determine_targets.outputs.AUTH_SECRET] }}
