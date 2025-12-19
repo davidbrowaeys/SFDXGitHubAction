@@ -45,7 +45,7 @@ jobs:
               echo "TARGET_ENV=SIT" >> $GITHUB_OUTPUT
               echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
             fi
-          elfi
+          elif
             CHECK_ONLY_MODE="false"
             if [ "$REF" =~ ^refs/heads/release/ ]; then
               echo "Target branch is a 'release/*' branch. Scheduling SIT validation/deployment."
