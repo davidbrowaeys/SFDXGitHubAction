@@ -1,47 +1,127 @@
-name: SFDX CI
+name: Salesforce Project CI/CD
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'force-app/**'
   pull_request:
-      types: [assigned, opened, synchronize, reopened, edited]
-      branches:
-        - main
+    # Triggers on PRs targeting develop or any release branch
+    branches:
+      - develop
+      - 'release/**'
+  push:
+    # Triggers on Pushes directly to develop or any release branch
+    branches:
+      - develop
+      - 'release/**'
 
 jobs:
-  build:
-
+  # --- 1. Determine which environments need validation/deployment ---
+  determine_targets:
     runs-on: ubuntu-latest
-
-    environment: CI
-
-    strategy:
-      matrix:
-        node-version: [15.x]
-
+    outputs:
+      # CRITICAL FIX: Explicitly map the step outputs to the job outputs
+      TARGET_ENV: ${{ steps.set_targets.outputs.TARGET_ENV }}
+      CHECK_ONLY: ${{ steps.set_targets.outputs.CHECK_ONLY }}
+      
     steps:
-    - uses: actions/checkout@v2
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v1
-      with:
-        node-version: ${{ matrix.node-version }}
-    - shell: bash
-      name: Install SFDX and plugins
-      run: |
-        echo $GITHUB_EVENT_NAME
-        npm install -g sfdx-cli@latest
-        echo 'y' | sfdx plugins:install dxb@latest
-    - shell: bash
-      name: Authenticate
-      env:
-        AUTHURL: ${{ secrets.AUTH_URL }}
-      run: |
-        echo "$AUTHURL" > creds.txt
-        sfdx force:auth:sfdxurl:store -f creds.txt -a CI
-    - shell: bash
-      name: Deploy to CI
-      run: |
-        sfdx force:source:deploy -p force-app -u CI
+      - name: 🔍 Determine Target Environment & Mode
+        id: set_targets
+        run: |
+          EVENT_NAME="${{ github.event_name }}"
+          BASE_REF="${{ github.base_ref }}"
+          REF="${{ github.ref }}"
+          echo "EVENT_NAME = $EVENT_NAME"
+          echo "BASE_REF = $BASE_REF"
+          echo "REF = $REF"
+          CHECK_ONLY_MODE="false"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            CHECK_ONLY_MODE="true"
+            
+            if [ "$BASE_REF" = "develop" ]; then 
+              echo "Target branch is 'develop'. Scheduling QA validation."
+              echo "TARGET_ENV=QA" >> $GITHUB_OUTPUT
+              echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
+              
+            elif [[ "$BASE_REF" =~ ^release/ ]]; then
+              echo "Target branch is a 'release/*' branch. Scheduling SIT validation."
+              echo "TARGET_ENV=SIT" >> $GITHUB_OUTPUT
+              echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
+            fi
+          
+          else
+            # This block handles 'push' events (where EVENT_NAME is not pull_request)
+            CHECK_ONLY_MODE="false"
+            
+            if [[ "$REF" =~ ^refs/heads/release/ ]]; then
+              echo "Push to 'release/*' branch. Scheduling SIT deployment."
+              echo "TARGET_ENV=SIT" >> $GITHUB_OUTPUT
+              echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
+              
+            elif [ "$REF" = "refs/heads/develop" ]; then
+              echo "Push to 'develop' branch. Scheduling QA deployment."
+              echo "TARGET_ENV=QA" >> $GITHUB_OUTPUT
+              echo "CHECK_ONLY=$CHECK_ONLY_MODE" >> $GITHUB_OUTPUT
+            fi 
+          fi
+
+        shell: bash
+
+  # --- 2. Single Deployment Job (No Matrix) ---
+  continuous_integration:
+    name: 🚀 Deploy to ${{ needs.determine_targets.outputs.TARGET_ENV || 'No Target' }}
+    needs: determine_targets
+    
+    # Run only if TARGET_ENV was actually set (not an empty string)
+    if: ${{ needs.determine_targets.outputs.TARGET_ENV != '' }}
+    
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    
+    with:
+      # Access config values directly via the job output
+      target-env: ${{ needs.determine_targets.outputs.TARGET_ENV }}
+      deployment-mode: 'DELTA'
+      
+      # Use the boolean conversion
+      check-only: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'true' }}
+      run-code-scanner: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'true' }}
+      run-data-import: false
+      
+    secrets: inherit
+  ############   RELEASE STAGE ##########################################################
+  # --- 3. Validate UAT
+  release_validate_uat:
+    name: 🚀 Validate to UAT
+    needs: continuous_integration
+    
+    # Run only if TARGET_ENV was actually set (not an empty string)
+    if: ${{ github.event_name == 'push' && startsWith(github.ref_name, 'release/') }}
+    
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    
+    with:
+      # Access config values directly via the job output
+      target-env: UAT
+      deployment-mode: 'DELTA'
+      check-only: true
+      run-code-scanner: false
+      run-data-import: false
+      
+    secrets: inherit
+   # --- 3. Deploy UAT
+   
+  release_deploy_uat:
+    name: 🚀 Deploy to UAT
+    needs: release_validate_uat
+    
+    # Run only if TARGET_ENV was actually set (not an empty string)
+    if: ${{ github.event_name == 'push' && startsWith(github.ref_name, 'release/') }}
+    
+    uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
+    
+    with:
+      # Access config values directly via the job output
+      target-env: UAT
+      deployment-mode: 'DELTA'
+      check-only: false
+      run-code-scanner: false
+      run-data-import: false
+      
+    secrets: inherit
