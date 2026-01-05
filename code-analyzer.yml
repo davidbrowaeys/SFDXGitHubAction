@@ -604,7 +604,7 @@ engines:
   retire-js:
 
     # Whether to turn off the 'retire-js' engine so that it is not included when running Code Analyzer commands.
-    disable_engine: false
+    disable_engine: true
 
   # ======================================================================
   # REGEX ENGINE CONFIGURATION
@@ -782,18 +782,18 @@ engines:
     # Whether to turn off the default base configuration that supplies the standard ESLint rules for JavaScript files.
     # The base configuration for JavaScript files adds the rules from the "eslint:all" configuration to Code Analyzer.
     # See https://eslint.org/docs/latest/rules for the list of rules.
-    disable_javascript_base_config: true # Modified from: false
+    disable_javascript_base_config: true 
 
     # Whether to turn off the default base configuration that supplies the LWC rules for JavaScript files.
     # The base configuration for LWC adds the rules from the "@salesforce/eslint-config-lwc/recommended"
     # and "plugin:@lwc/lwc-platform/recommended" configurations to Code Analyzer.
     # See https://github.com/salesforce/eslint-config-lwc and https://www.npmjs.com/package/@lwc/eslint-plugin-lwc-platform.
-    disable_lwc_base_config: true # Modified from: false
+    disable_lwc_base_config: true 
     
     # Whether to turn off the default base configuration that supplies the standard rules for TypeScript files
     # The base configuration for TypeScript files adds the rules from the "plugin:@typescript-eslint:all" configuration to Code Analyzer.
     # See https://typescript-eslint.io/rules and https://eslint.org/docs/latest/rules for the lists of rules.
-    disable_typescript_base_config: true # Modified from: false
+    disable_typescript_base_config: true 
 
     # Extensions of the files in your workspace that will be used to discover rules.
     # To associate file extensions to the standard ESLint JavaScript rules, LWC rules, or custom JavaScript-based
@@ -809,10 +809,6 @@ engines:
         - .mjs
       typescript:
         - .ts
-      html:
-        - .html
-        - .htm
-        - .cmp
       other: []
 
   # ======================================================================
