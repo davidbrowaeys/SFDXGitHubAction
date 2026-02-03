@@ -68,6 +68,6 @@ private class MyControllerTest {
         Test.stopTest();
 
         // Assertion
-        System.assert(true, 'An AuraHandledException should have been thrown for null objectApiName.');
+        System.assert(false, 'An AuraHandledException should have been thrown for null objectApiName.');
     }
 }
