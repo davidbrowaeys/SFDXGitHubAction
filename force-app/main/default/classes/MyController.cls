@@ -10,7 +10,7 @@ public with sharing class MyController {
         if (objectApiName == null){
             throw new AuraHandledException('ObjectApiName must be specified');
         }
-    
+    eeee
         if (recordIds == null){
             throw new AuraHandledException('recordIds must be specified');
         }
