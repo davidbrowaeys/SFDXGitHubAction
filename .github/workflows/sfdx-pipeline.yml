@@ -83,6 +83,7 @@ jobs:
       check-only: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'true' }}
       run-code-scanner: ${{ needs.determine_targets.outputs.CHECK_ONLY == 'true' }}
       run-data-import: false
+      runjest: true
       
     secrets: inherit
   ############   RELEASE STAGE ##########################################################
