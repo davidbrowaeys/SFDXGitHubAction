@@ -1,5 +1,5 @@
 /**
-* @description Sample Controller!
+* @description Sample Controller!1
 */
 public with sharing class MyController {
     @AuraEnabled(cacheable=true)
