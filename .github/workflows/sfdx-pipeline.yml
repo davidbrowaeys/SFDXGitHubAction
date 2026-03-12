@@ -2,12 +2,10 @@ name: Syensqo Salesforce Pipeline
 
 on:
   pull_request:
-    # Triggers on PRs targeting develop or release branches
     branches:
       - develop
       - "release/**"
   push:
-    # Triggers on Pushes directly to develop or release branches
     branches:
       - develop
       - "release/**"
@@ -15,11 +13,8 @@ on:
 jobs:
   validate_qa:
     name: ✅ Validate to QA
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' && github.base_ref == 'develop' }}
-
+    if: github.event_name == 'pull_request' && github.base_ref == 'develop'
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-
     with:
       target-env: QA
       deployment-mode: "DELTA"
@@ -27,17 +22,12 @@ jobs:
       run-code-scanner: true
       run-data-import: false
       runjest: true
-
     secrets: inherit
 
-  # --- 2. Deploy QA (merge to develop)
   deploy_qa:
     name: 🚀 Deploy to QA
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
-
+    if: github.event_name == 'push' && github.ref_name == 'develop'
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-
     with:
       target-env: QA
       deployment-mode: "DELTA"
@@ -45,16 +35,12 @@ jobs:
       run-code-scanner: false
       run-data-import: false
       runjest: true
-
     secrets: inherit
 
   validate_sit:
     name: ✅ Validate to SIT
-
-    if: ${{ github.event_name == 'pull_request' && startsWith(github.base_ref, 'release/') }}
-
+    if: github.event_name == 'pull_request' && startsWith(github.base_ref, 'release/')
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-
     with:
       target-env: SIT
       deployment-mode: "DELTA"
@@ -62,17 +48,12 @@ jobs:
       run-code-scanner: true
       run-data-import: false
       runjest: true
-
     secrets: inherit
 
-  # --- 4. Deploy SIT (merge to release/*)
   deploy_sit:
     name: 🚀 Deploy to SIT
-
-    if: ${{ github.event_name == 'push' && startsWith(github.ref_name, 'release/') }}
-
+    if: github.event_name == 'push' && startsWith(github.ref_name, 'release/')
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-
     with:
       target-env: SIT
       deployment-mode: "DELTA"
@@ -80,72 +61,39 @@ jobs:
       run-code-scanner: false
       run-data-import: false
       runjest: true
-
     secrets: inherit
 
-  ############   UAT STAGE ##########################################################
-  # UAT deployment requires manual approval before validation and deployment
-  # Flow: SIT Deploy → (Approval) → UAT Validate → (Approval) → UAT Deploy
-
-  # --- 5. Validate UAT (after SIT deployment, requires approval)
   validate_uat:
     name: ✅ Validate to UAT
     needs: deploy_sit
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && startsWith(github.ref_name, 'release/') }}
-
-    environment:
-      name: UAT-Validation
-
+    if: github.event_name == 'push' && startsWith(github.ref_name, 'release/')
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-
     with:
-      target-env: UAT
+      target-env: UAT # This triggers the "UAT" environment in the reusable workflow
       deployment-mode: "DELTA"
       check-only: true
       run-code-scanner: false
       run-data-import: false
-
     secrets: inherit
 
-  # --- 6. Deploy UAT (after UAT validation, requires approval)
   deploy_uat:
     name: 🚀 Deploy to UAT
     needs: validate_uat
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && startsWith(github.ref_name, 'release/') }}
-
-    environment:
-      name: UAT-Deployment
-
+    if: github.event_name == 'push' && startsWith(github.ref_name, 'release/')
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-
     with:
       target-env: UAT
       deployment-mode: "DELTA"
       check-only: false
       run-code-scanner: false
       run-data-import: false
-
     secrets: inherit
 
-  ############   PRODUCTION STAGE ##########################################################
-  # PROD deployment requires manual approval before validation and deployment
-  # Flow: UAT Deploy → (Approval) → PROD Validate → (Approval) → PROD Deploy
-  # After successful PROD deployment, merge release/* to main manually
-
-  # --- 7. Validate PROD (after UAT deployment, requires approval)
   validate_prod:
     name: ✅ Validate to PROD
     needs: deploy_uat
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && startsWith(github.ref_name, 'release/') }}
-
-    environment:
-      name: PROD-Validation
-
+    if: github.event_name == 'push' && startsWith(github.ref_name, 'release/')
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-
     with:
       target-env: PROD
       deployment-mode: "DELTA"
@@ -153,23 +101,13 @@ jobs:
       run-code-scanner: true
       run-data-import: false
       runjest: true
-
     secrets: inherit
 
-  # --- 8. Deploy PROD (after PROD validation, requires approval)
-  # NOTE: After this deployment succeeds, manually merge release/* to main
-  # to keep main branch as a mirror of production
   deploy_prod:
     name: 🚀 Deploy to PROD
     needs: validate_prod
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && startsWith(github.ref_name, 'release/') }}
-
-    environment:
-      name: PROD-Deployment
-
+    if: github.event_name == 'push' && startsWith(github.ref_name, 'release/')
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
-
     with:
       target-env: PROD
       deployment-mode: "DELTA"
@@ -177,5 +115,4 @@ jobs:
       run-code-scanner: false
       run-data-import: false
       runjest: false
-
     secrets: inherit
