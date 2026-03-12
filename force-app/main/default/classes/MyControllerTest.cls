@@ -1,7 +1,7 @@
 @IsTest(SeeAllData=false)
 private class MyControllerTest {
     /**
-     * @description Test case for getRecords with valid input and default fields.
+     * @description Test case for getRecords with valid input and default fields.u
      */
     @IsTest
     static void getRecords_Success_DefaultFields() {
