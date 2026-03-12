@@ -15,7 +15,7 @@ on:
 jobs:
   validate_qa:
     name: ✅ Validate to QA
-
+    runs-on: ubuntu-latest
     if: ${{ github.event_name == 'pull_request' && github.base_ref == 'develop' }}
 
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
@@ -33,7 +33,7 @@ jobs:
   # --- 2. Deploy QA (merge to develop)
   deploy_qa:
     name: 🚀 Deploy to QA
-
+    runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
 
     uses: davidbrowaeys/SafireForGitHub/.github/workflows/continuous-integration.yml@main
@@ -91,7 +91,7 @@ jobs:
   validate_uat:
     name: ✅ Validate to UAT
     needs: deploy_sit
-
+    runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' && startsWith(github.ref_name, 'release/') }}
 
     environment:
@@ -112,7 +112,7 @@ jobs:
   deploy_uat:
     name: 🚀 Deploy to UAT
     needs: validate_uat
-
+    runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' && startsWith(github.ref_name, 'release/') }}
 
     environment:
@@ -138,7 +138,7 @@ jobs:
   validate_prod:
     name: ✅ Validate to PROD
     needs: deploy_uat
-
+    runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' && startsWith(github.ref_name, 'release/') }}
 
     environment:
@@ -162,7 +162,7 @@ jobs:
   deploy_prod:
     name: 🚀 Deploy to PROD
     needs: validate_prod
-
+    runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' && startsWith(github.ref_name, 'release/') }}
 
     environment:
